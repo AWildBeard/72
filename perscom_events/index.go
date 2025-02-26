@@ -15,6 +15,7 @@ var catalog = []ButtonEventHandler{
 	temporaryPassRequest,
 	squadXML,
 	schoolAndCourseRequest,
+	dischargeRequest,
 }
 
 func GetButtonEventHandlers() []ButtonEventHandler {

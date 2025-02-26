@@ -46,15 +46,20 @@ func main() {
 
 	{
 		primaryButtons := make([]discord.ButtonComponent, 0)
+		warningButtons := make([]discord.ButtonComponent, 0)
 		for _, buttonEventHandler := range perscom_events.GetButtonEventHandlers() {
 			switch buttonEventHandler.Button.Style {
-			case discord.ButtonStylePremium:
+			case discord.ButtonStylePremium: // We don't use because we don't sell things
 			case discord.ButtonStyleSuccess: // Green
 			case discord.ButtonStylePrimary: // Blue
 				primaryButtons = append(primaryButtons, buttonEventHandler.Button)
 			case discord.ButtonStyleSecondary: // Gray
-			case discord.ButtonStyleLink:
+			case discord.ButtonStyleLink: // Also gray?
 			case discord.ButtonStyleDanger: // Red
+				warningButtons = append(warningButtons, buttonEventHandler.Button)
+			default:
+				slog.Error("unknown button style", slog.Any("style", buttonEventHandler.Button.Style))
+				return
 			}
 
 			client.AddEventListeners(buttonEventHandler.EventListeners...)
@@ -98,6 +103,22 @@ func main() {
 							}
 							buttonGroup := make([]discord.InteractiveComponent, 0)
 							for _, button := range primaryButtons[i:end] {
+								buttonGroup = append(buttonGroup, button)
+							}
+
+							// Create a new message with buttons in groups of 5
+							_, _ = client.Rest().CreateMessage(channel.ID(), discord.NewMessageCreateBuilder().
+								AddActionRow(buttonGroup...).
+								Build())
+						}
+
+						for i := 0; i < len(warningButtons); i += 5 {
+							end := i + 5
+							if end > len(warningButtons) {
+								end = len(warningButtons)
+							}
+							buttonGroup := make([]discord.InteractiveComponent, 0)
+							for _, button := range warningButtons[i:end] {
 								buttonGroup = append(buttonGroup, button)
 							}
 
