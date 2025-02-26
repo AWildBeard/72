@@ -7,7 +7,7 @@ RUN cp $(which dlv) /dist/dlv
 WORKDIR /app
 COPY ["go.*", "./"]
 RUN go mod download
-COPY ["Makefile", "*.go", "./"]
+COPY [".", "./"]
 RUN --mount=type=cache,target=/root/.cache/go-build make build
 
 WORKDIR /dist
