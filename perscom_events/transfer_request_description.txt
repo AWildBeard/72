@@ -1,0 +1,6 @@
+Transfer requests allow you to move from your current combat unit to another unit, section (e.g., ACE), or Reserves. Common reasons include joining a friend's section, desire for a different gameplay experience, or issues in your current unit.
+
+**Approvals:**
+- Not all requests are approved. Denials may occur due to capacity limits, qualifications, or section commander decisions.
+
+Fill out your current and desired unit/section using the button below. A channel will be created to coordinate your transfer.

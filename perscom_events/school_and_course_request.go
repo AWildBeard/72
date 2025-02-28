@@ -1,6 +1,7 @@
 package perscom_events
 
 import (
+	_ "embed"
 	"fmt"
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
@@ -13,8 +14,11 @@ const schoolAndCourseRequestCustomID = "school-and-course-request"
 const selectedCourseCustomID = "selected-course"
 const selectedCourseAvailabilityModalSubmit = "selected-course-availability-modal-submit"
 
+//go:embed school_and_course_request_description.txt
+var schoolAndCourseDescription string
+
 var schoolAndCourseRequest = ButtonEventHandler{
-	discord.NewPrimaryButton("School & Course Request", schoolAndCourseRequestCustomID),
+	discord.NewPrimaryButton("Schools & Courses", schoolAndCourseRequestCustomID),
 	[]bot.EventListener{schoolAndCourseRequestEventListener, schoolAndCourseRequestSelectionEventListener, schoolAndCourseModalSubmitEventListener},
 }
 
@@ -25,10 +29,8 @@ var schoolAndCourseRequestEventListener = bot.NewListenerFunc(func(event *events
 				SetEphemeral(true).
 				SetEmbeds(discord.NewEmbedBuilder().
 					SetTitle("School & Course Descriptions").
-					SetDescription(
-						`Select the schools and courses you wish to apply for. Ensure you meet the prerequisites outlined in the [Schools and Courses documentation](http://72ndairborne.com/ipbdev/index.php?/schools-and-courses/). Course dates vary based on student demand. Submit only serious and limited requests; repeat submissions selecting all options will be discarded.`,
-					).
-					SetColor(0x00FF00). // Example color
+					SetDescription(schoolAndCourseDescription).
+					SetColor(0x5765f2). // Example color
 					Build()).
 				AddActionRow(discord.NewStringSelectMenu(selectedCourseCustomID, "Select a school or course",
 					discord.NewStringSelectMenuOption("Airborne", "Airborne"),

@@ -1,6 +1,7 @@
 package perscom_events
 
 import (
+	_ "embed"
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
@@ -11,8 +12,11 @@ const squadXMLCustomID = "squad-xml-button"
 const squadXMLCreateModalCustomID = "squad-xml-modal"
 const squadXMLSubmitModalCustomID = "squad-xml-modal-submit"
 
+//go:embed squad_xml_description.txt
+var squadXMLDescription string
+
 var squadXML = ButtonEventHandler{
-	discord.NewPrimaryButton("Request a Squad XML", squadXMLCustomID),
+	discord.NewPrimaryButton("Squad XML", squadXMLCustomID),
 	[]bot.EventListener{squadXMLEventListener, squadXMLModalRequestEventListener, squadXMLModalSubmissionEventListener},
 }
 
@@ -25,20 +29,8 @@ var squadXMLEventListener = bot.NewListenerFunc(func(event *events.ComponentInte
 				SetEphemeral(true).
 				SetEmbeds(discord.NewEmbedBuilder().
 					SetTitle("Squad XML Request Instructions").
-					SetDescription("Depending on your section, you'll need one of the following links\n" +
-						"1. Platoon: `https://72ndairborne.com/squadxml/airborne/squad.xml`\n" +
-						"2. ACE: `https://72ndairborne.com/squadxml/aviation/squad.xml`\n" +
-						"3. ODA: `https://72ndairborne.com/squadxml/oda/squad.xml`\n" +
-						"Paste the appropriate link for you into the Squad URL section of your ArmA3 Profile.\n\n" +
-						"Retrieve:\n" +
-						"1. Your Name. This should be your platform name (I.E. `SSG A. Hydra`)\n" +
-						"2. Your Player ID. You can get your Player ID from the ArmA3 Profile Menu.\n\n" +
-						"When your ready to continue, use the button below to add your Name and " +
-						"Player ID to the request.\n\n" +
-						"Be sure to put in a Squad XML request with every promotion so we can ensure your unit " +
-						"patch stays with you in-game.",
-					).
-					SetColor(0x00FF00).
+					SetDescription(squadXMLDescription).
+					SetColor(0x5765f2).
 					Build(),
 				).
 				AddActionRow(discord.NewPrimaryButton("Add Name & Player ID", squadXMLCreateModalCustomID)).

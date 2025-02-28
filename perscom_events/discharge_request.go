@@ -1,6 +1,7 @@
 package perscom_events
 
 import (
+	_ "embed"
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
@@ -12,8 +13,11 @@ const dischargeRequestWithoutStatementCustomID = "discharge-request-without-stat
 const dischargeRequestStatementModalCustomID = "discharge-request-statement-modal"
 const dischargeRequestStatementSubmitModalCustomID = "discharge-request-statement-modal-submit"
 
+//go:embed discharge_request_description.txt
+var dischargeRequestDescription string
+
 var dischargeRequest = ButtonEventHandler{
-	discord.NewDangerButton("Discharge Request", dischargeRequestCustomID),
+	discord.NewDangerButton("Discharge", dischargeRequestCustomID),
 	[]bot.EventListener{dischargeRequestEventHandler,
 		dischargeRequestWithoutStatementEventListener,
 		dischargeRequestStatementModalEventListener,
@@ -29,18 +33,7 @@ var dischargeRequestEventHandler = bot.NewListenerFunc(func(event *events.Compon
 			SetEmbeds(discord.NewEmbedBuilder().
 				SetTitle("Discharge Request").
 				SetColor(0xFF0000).
-				SetDescription(
-					"Discharges come in varying grades and is dependent on your current "+
-						"status in the community. \n\n"+
-						"The grades are: \n"+
-						"1. **Entry Level Separation**\n"+
-						"2. **General Discharge**\n"+
-						"3. **Honorable Discharge**\n"+
-						"4. **Dishonorable Discharge**\n"+
-						"5. **Retirement**\n\n"+
-						"The decision in your grade of discharge is handled by command staff.\n\n"+
-						"Below you can choose to leave a discharge statement with your request, or "+
-						"submit the request without a statement.").
+				SetDescription(dischargeRequestDescription).
 				Build(),
 			).
 			AddActionRow(

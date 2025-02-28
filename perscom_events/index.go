@@ -11,11 +11,15 @@ type ButtonEventHandler struct {
 }
 
 var catalog = []ButtonEventHandler{
-	leaveOfAbsence,
 	temporaryPassRequest,
-	squadXML,
+	leaveOfAbsence,
 	schoolAndCourseRequest,
+	blingBucksRequest,
+	transferRequest,
+	awardRecommendation,
+	squadXML,
 	dischargeRequest,
+	sfasApplication,
 }
 
 func GetButtonEventHandlers() []ButtonEventHandler {

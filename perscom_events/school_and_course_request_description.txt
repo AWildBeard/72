@@ -1,0 +1,7 @@
+Schools and Courses are taught by S4 staff of the 72nd. These courses teach valuable tactics, techniques, and procedures that lead to a higher and more enjoyable gameplay experience.
+
+**Requirements for submitting school & course requests**:
+- Ensure you meet the prerequisites for a course documented in the [Schools and Courses documentation](http://72ndairborne.com/ipbdev/index.php?/schools-and-courses/)
+- Submit only serious and limited requests; repeat submissions selecting all options will be discarded.
+
+Please note that course dates vary based on student demand. Feel free to ask questions about when a school or course will be given!

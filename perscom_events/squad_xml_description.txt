@@ -1,0 +1,15 @@
+Squad XML is a ArmA3 facet that lets you advertise your unit and rank in-game. It is viewable on the map interface under the players tab.
+Be sure to put in a Squad XML request with every promotion so we can ensure your unit patch stays with you in-game.
+
+In order to utilize SquadXML, you'll need one of the following links depending on your section.
+1. Platoon: `https://72ndairborne.com/squadxml/airborne/squad.xml`
+2. ACE: `https://72ndairborne.com/squadxml/aviation/squad.xml`
+3. ODA: `https://72ndairborne.com/squadxml/oda/squad.xml`
+
+Paste the appropriate link for you into the Squad URL section of your ArmA3 Profile in-game.
+
+Next, retrieve:
+1. Your Name. This should be your platform name (I.E. `SSG A. Hydra`)
+2. Your Player ID. You can get your Player ID from the ArmA3 Profile Menu.
+
+When you're ready to continue, use the button below to add your Name and Player ID to the request.

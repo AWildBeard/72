@@ -8,6 +8,7 @@ import (
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/disgo/gateway"
+	"github.com/disgoorg/snowflake/v2"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -47,14 +48,18 @@ func main() {
 	{
 		primaryButtons := make([]discord.ButtonComponent, 0)
 		warningButtons := make([]discord.ButtonComponent, 0)
+		successButtons := make([]discord.ButtonComponent, 0)
 		for _, buttonEventHandler := range perscom_events.GetButtonEventHandlers() {
 			switch buttonEventHandler.Button.Style {
 			case discord.ButtonStylePremium: // We don't use because we don't sell things
 			case discord.ButtonStyleSuccess: // Green
+				successButtons = append(successButtons, buttonEventHandler.Button)
 			case discord.ButtonStylePrimary: // Blue
 				primaryButtons = append(primaryButtons, buttonEventHandler.Button)
 			case discord.ButtonStyleSecondary: // Gray
+				fallthrough
 			case discord.ButtonStyleLink: // Also gray?
+				fallthrough
 			case discord.ButtonStyleDanger: // Red
 				warningButtons = append(warningButtons, buttonEventHandler.Button)
 			default:
@@ -94,68 +99,10 @@ func main() {
 					}
 
 					if !found {
-						// TODO: Success buttons
-
-						for i := 0; i < len(primaryButtons); i += 5 {
-							end := i + 5
-							if end > len(primaryButtons) {
-								end = len(primaryButtons)
-							}
-							buttonGroup := make([]discord.InteractiveComponent, 0)
-							for _, button := range primaryButtons[i:end] {
-								buttonGroup = append(buttonGroup, button)
-							}
-
-							// Create a new message with buttons in groups of 5
-							_, _ = client.Rest().CreateMessage(channel.ID(), discord.NewMessageCreateBuilder().
-								AddActionRow(buttonGroup...).
-								Build())
-						}
-
-						for i := 0; i < len(warningButtons); i += 5 {
-							end := i + 5
-							if end > len(warningButtons) {
-								end = len(warningButtons)
-							}
-							buttonGroup := make([]discord.InteractiveComponent, 0)
-							for _, button := range warningButtons[i:end] {
-								buttonGroup = append(buttonGroup, button)
-							}
-
-							// Create a new message with buttons in groups of 5
-							_, _ = client.Rest().CreateMessage(channel.ID(), discord.NewMessageCreateBuilder().
-								AddActionRow(buttonGroup...).
-								Build())
-						}
-						//
-						//buttons := []discord.InteractiveComponent{
-						//	discord.NewSuccessButton("Join The Unit", "join-unit-application"),
-						//	discord.NewSuccessButton("BB Redemption", "bb-redemption"),
-						//}
-						//_, _ = client.Rest().CreateMessage(channel.ID(), discord.NewMessageCreateBuilder().
-						//	AddActionRow(buttons...).
-						//	Build())
-						//
-						//_, _ = client.Rest().CreateMessage(channel.ID(), discord.NewMessageCreateBuilder().
-						//	AddActionRow(discord.NewPrimaryButton("School & Course Request", "school-and-course-request"),
-						//		discord.NewPrimaryButton("Request a Squad XML", "squad-xml-request"),
-						//		discord.NewPrimaryButton("Award Recommendation", "award-recommendation"),
-						//		discord.NewPrimaryButton("Squad Transfer Request", "squad-transfer-request")).
-						//	Build())
-						//
-						//_, _ = client.Rest().CreateMessage(channel.ID(), discord.NewMessageCreateBuilder().
-						//	AddActionRow(discord.NewPrimaryButton("Leave of Absense", "leave-of-absense"),
-						//		discord.NewPrimaryButton("Temporary Pass Request", "temporary-pass-request")).
-						//	Build())
-						//
-						//_, _ = client.Rest().CreateMessage(channel.ID(), discord.NewMessageCreateBuilder().
-						//	AddActionRow(discord.NewSecondaryButton("Special Forces Application", "special-forces-application"),
-						//		discord.NewDangerButton("Discharge Request", "discharge-request")).
-						//	Build())
-						//
+						sendButtonsBy5(client, primaryButtons, channel.ID())
+						sendButtonsBy5(client, successButtons, channel.ID())
+						sendButtonsBy5(client, warningButtons, channel.ID())
 					}
-
-					return
 				}
 			}
 		}))
@@ -170,4 +117,26 @@ func main() {
 	s := make(chan os.Signal, 1)
 	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-s
+}
+
+func sendButtonsBy5(client bot.Client, buttons []discord.ButtonComponent, channelID snowflake.ID) {
+	for i := 0; i < len(buttons); i += 5 {
+		end := i + 5
+		if end > len(buttons) {
+			end = len(buttons)
+		}
+		buttonGroup := make([]discord.InteractiveComponent, 0)
+		for _, button := range buttons[i:end] {
+			buttonGroup = append(buttonGroup, button)
+		}
+
+		// Create a new message with buttons in groups of 5
+		_, err := client.Rest().CreateMessage(channelID, discord.NewMessageCreateBuilder().
+			AddActionRow(buttonGroup...).
+			Build())
+
+		if err != nil {
+			slog.Error("error while creating message", slog.Any("err", err))
+		}
+	}
 }

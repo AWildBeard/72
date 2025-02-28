@@ -1,0 +1,17 @@
+** Bling Bucks ** (BB) are a currency awarded to community members based on attending or hosting unit events.
+
+:coin: BB :coin: Can be awarded for:
+- Attending main campaign operations
+- Hosting (receives more than attending) or attending "mini-Ops"
+- Running (S4 personnel) or attending a training
+
+You can redeem :coin: BB :coin: for insignias, backpack or vest patches, custom face-wear, uniform modifications (like rolled sleeves on a uniform that doesn't have rolled sleeves), etc.
+
+For all the options below except Raffle Tickets, you will also need the following to submit your :coin: BB :coin: request:
+1. Your name. This should be your platform name (I.E. `SSG G. Hydra`)
+2. Exact name of the item in the ACE arsenal in-game that you want to customize (I.E. `USP_45L_RUCKSACK_MC`).
+3. A link to a visual of the customization you want, or a description of the modification.
+
+After submitting this workflow, a channel will be created to allow fulfilling this :coin: BB :coin: request (not for raffle tickets).
+
+*Please note that not all :coin: BB :coin: requests can be fulfilled based on game limitations, modification limitations, proprietary mods, etc.*

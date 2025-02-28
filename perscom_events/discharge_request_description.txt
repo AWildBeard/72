@@ -1,0 +1,12 @@
+Discharges come in varying grades and is dependent on your current status in the community.
+
+The grades are:
+1. **Entry Level Separation**
+2. **General Discharge**
+3. **Honorable Discharge**
+4. **Dishonorable Discharge**
+5. **Retirement**
+
+The decision in your grade of discharge is handled by command staff.
+
+Below you can choose to leave a discharge statement with your request, or submit the request without a statement.
