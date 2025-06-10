@@ -3,30 +3,39 @@ package main
 import (
 	"72/perscom_events"
 	"context"
+	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/disgoorg/disgo"
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/disgo/gateway"
 	"github.com/disgoorg/snowflake/v2"
-	"log/slog"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 var (
-	token        = os.Getenv("disgo_token")
+	token        string
 	buildType    string
 	buildVersion string
-
-	client bot.Client
+	client       bot.Client
 )
 
 func main() {
-	slog.Info("starting example...")
-	slog.Info("version", slog.String("version", buildType+"-"+buildVersion))
+	slog.Info("starting bot...")
+	slog.Info("build version", slog.String("version", buildType+"-"+buildVersion))
 	slog.Info("disgo version", slog.String("version", disgo.Version))
+
+	// Read the token from environment variable
+	token = os.Getenv("DISCORD_BOT_TOKEN")
+	if token == "" {
+		slog.Error("DISCORD_BOT_TOKEN is not set! Please check your environment or .env file.")
+		return
+	} else {
+		slog.Info("DISCORD_BOT_TOKEN was loaded", slog.Int("length", len(token)))
+	}
 
 	var err error
 	client, err = disgo.New(token,
@@ -80,7 +89,7 @@ func main() {
 			for _, channel := range channels {
 				if channel.Name() == "perscom" {
 					// Detect and delete previous "Hello World" messages from the bot
-					messages, err := client.Rest().GetMessages(channel.ID(), 0, 0, 0, 100) // Fetch the last 100 messages
+					messages, err := client.Rest().GetMessages(channel.ID(), 0, 0, 0, 100)
 					if err != nil {
 						slog.Error("error while fetching messages", slog.Any("err", err))
 						return
@@ -91,10 +100,6 @@ func main() {
 						if message.Author.ID == client.ID() {
 							found = true
 							break
-							//err := client.Rest().DeleteMessage(channel.ID(), message.ID)
-							//if err != nil {
-							//	slog.Error("error while deleting message", slog.Any("err", err))
-							//}
 						}
 					}
 
@@ -113,7 +118,7 @@ func main() {
 		return
 	}
 
-	slog.Info("example is now running. Press CTRL-C to exit.")
+	slog.Info("bot is now running. Press CTRL-C to exit.")
 	s := make(chan os.Signal, 1)
 	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-s
@@ -130,7 +135,6 @@ func sendButtonsBy5(client bot.Client, buttons []discord.ButtonComponent, channe
 			buttonGroup = append(buttonGroup, button)
 		}
 
-		// Create a new message with buttons in groups of 5
 		_, err := client.Rest().CreateMessage(channelID, discord.NewMessageCreateBuilder().
 			AddActionRow(buttonGroup...).
 			Build())
