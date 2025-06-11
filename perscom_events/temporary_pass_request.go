@@ -14,6 +14,40 @@ import (
 	"github.com/disgoorg/snowflake/v2"
 )
 
+/*
+**temporaryPassRequestEventListener**
+Handles the "Temporary Pass" button click.
+Sends an ephemeral embed to the user with a description and a "Submit" button.
+
+**temporaryPassRequestSubmitEventListener**
+Handles the "Submit" button in the ephemeral message.
+Creates a pending request and posts it to the approval channel with Approve/Deny buttons.
+Notifies the user that their request was submitted via ephemeral embed.
+
+**tprApprovalListener**
+Handles Approve/Deny button clicks by admins.
+Approve:
+Moves the request from pending to the approved list in the forum post.
+Updates the forum post message with each new approval.
+DMs the user that their request was approved.
+Deletes the approval message from the channel.
+Deny:
+Opens a modal for the admin to enter a denial reason.
+
+**tprListCommandListener**
+Handles the /tpr-list slash command.
+Lists all approved temporary pass requests in the channel for that week.
+
+**tprDenyModalListener**
+Handles the modal submission when an admin denies a request.
+Extracts the denial reason.
+DMs the user with the denial reason.
+Notifies the admin and deletes the approval message.
+
+**InitTPRScheduler**
+Starts a goroutine that clears the approved TPRs and forum post message every Sunday at midnight UTC.
+*/
+
 const temporaryPassRequestCustomID = "temporary-pass-request"
 const temporaryPassRequestSubmitCustomID = "temporary-pass-request-submit"
 const tprApprovePrefix = "tpr-approve"
@@ -58,6 +92,7 @@ var temporaryPassRequest = ButtonEventHandler{
 		temporaryPassRequestSubmitEventListener,
 		tprApprovalListener,
 		tprListCommandListener,
+		tprDenyModalListener,
 	},
 }
 
@@ -130,12 +165,8 @@ var temporaryPassRequestSubmitEventListener = bot.NewListenerFunc(func(event *ev
 var tprApprovalListener = bot.NewListenerFunc(func(event *events.ComponentInteractionCreate) {
 	customID := event.Data.CustomID()
 
-	if strings.HasPrefix(customID, tprApprovePrefix) || strings.HasPrefix(customID, tprDenyPrefix) {
-		isApproval := strings.HasPrefix(customID, tprApprovePrefix)
+	if strings.HasPrefix(customID, tprApprovePrefix) {
 		userID := strings.TrimPrefix(customID, tprApprovePrefix)
-		if !isApproval {
-			userID = strings.TrimPrefix(customID, tprDenyPrefix)
-		}
 
 		request, ok := pendingTPRs[userID]
 		if !ok {
@@ -148,63 +179,57 @@ var tprApprovalListener = bot.NewListenerFunc(func(event *events.ComponentIntera
 
 		delete(pendingTPRs, userID)
 
-		statusText := "denied"
-		if isApproval {
-			approved := ApprovedTPR{
-				UserID:      request.UserID,
-				UserName:    request.UserName,
-				RequestedAt: request.RequestedAt,
-				Operation:   request.Operation,
-				ApprovedBy:  event.User().Tag(),
-				ApprovedAt:  time.Now().UTC(),
-			}
-
-			approvedTPRsMutex.Lock()
-			approvedTPRs = append(approvedTPRs, approved)
-			approvedTPRsMutex.Unlock()
-			statusText = "approved"
+		approved := ApprovedTPR{
+			UserID:      request.UserID,
+			UserName:    request.UserName,
+			RequestedAt: request.RequestedAt,
+			Operation:   request.Operation,
+			ApprovedBy:  event.User().Tag(),
+			ApprovedAt:  time.Now().UTC(),
 		}
 
-		// Update forum summary if approved
-		if isApproval {
-			forumMutex.Lock()
-			defer forumMutex.Unlock()
+		approvedTPRsMutex.Lock()
+		approvedTPRs = append(approvedTPRs, approved)
+		approvedTPRsMutex.Unlock()
 
-			var contentBuilder strings.Builder
-			contentBuilder.WriteString("**Approved Temporary Pass Requests:**\n")
+		// Update forum summary
+		forumMutex.Lock()
+		defer forumMutex.Unlock()
 
-			approvedTPRsMutex.Lock()
-			for _, tpr := range approvedTPRs {
-				contentBuilder.WriteString(fmt.Sprintf(
-					"• <@%s> approved by <@%s> at %s\n", tpr.UserID, tpr.ApprovedBy, tpr.ApprovedAt.Format(time.RFC1123)))
-			}
-			approvedTPRsMutex.Unlock()
+		var contentBuilder strings.Builder
+		contentBuilder.WriteString("**Approved Temporary Pass Requests:**\n")
 
-			if forumMessageID == 0 {
-				msg, err := event.Client().Rest().CreateMessage(tprForumThreadID,
-					discord.NewMessageCreateBuilder().SetContent(contentBuilder.String()).Build())
-				if err != nil {
-					slog.Error("failed to create forum summary message", slog.Any("err", err))
-				} else {
-					forumMessageID = msg.ID
-				}
+		approvedTPRsMutex.Lock()
+		for _, tpr := range approvedTPRs {
+			contentBuilder.WriteString(fmt.Sprintf(
+				"• <@%s> approved by <@%s> at %s\n", tpr.UserID, tpr.ApprovedBy, tpr.ApprovedAt.Format(time.RFC1123)))
+		}
+		approvedTPRsMutex.Unlock()
+
+		if forumMessageID == 0 {
+			msg, err := event.Client().Rest().CreateMessage(tprForumThreadID,
+				discord.NewMessageCreateBuilder().SetContent(contentBuilder.String()).Build())
+			if err != nil {
+				slog.Error("failed to create forum summary message", slog.Any("err", err))
 			} else {
-				_, err := event.Client().Rest().UpdateMessage(tprForumThreadID, forumMessageID,
-					discord.NewMessageUpdateBuilder().SetContent(contentBuilder.String()).Build())
-				if err != nil {
-					slog.Error("failed to update forum summary message", slog.Any("err", err))
-				}
+				forumMessageID = msg.ID
+			}
+		} else {
+			_, err := event.Client().Rest().UpdateMessage(tprForumThreadID, forumMessageID,
+				discord.NewMessageUpdateBuilder().SetContent(contentBuilder.String()).Build())
+			if err != nil {
+				slog.Error("failed to update forum summary message", slog.Any("err", err))
 			}
 		}
 
-		// Send DM to the user with status (no buttons)
+		// DM the user
 		dmChannel, err := event.Client().Rest().CreateDMChannel(snowflake.MustParse(userID))
 		if err != nil {
 			slog.Error("failed to create DM channel", slog.Any("err", err))
 		} else {
 			_, err := event.Client().Rest().CreateMessage(dmChannel.ID(),
 				discord.NewMessageCreateBuilder().
-					SetContentf("Your temporary pass request has been **%s**.", statusText).
+					SetContent("✅ Your temporary pass request has been **approved**.").
 					Build(),
 			)
 			if err != nil {
@@ -212,10 +237,30 @@ var tprApprovalListener = bot.NewListenerFunc(func(event *events.ComponentIntera
 			}
 		}
 
-		// Delete the original message in the approval channel
+		// Remove approval message
 		err = event.Client().Rest().DeleteMessage(tprApprovalChannelID, event.Message.ID)
 		if err != nil {
 			slog.Error("failed to delete approval message", slog.Any("err", err))
+		}
+
+	} else if strings.HasPrefix(customID, tprDenyPrefix) {
+		userID := strings.TrimPrefix(customID, tprDenyPrefix)
+
+		textInput := discord.NewTextInput("deny-reason", discord.TextInputStyleParagraph, "Reason for denial (required)")
+		textInput.Required = true
+		maxLength := 400
+		textInput.MaxLength = maxLength
+
+		err := event.Modal(
+			discord.NewModalCreateBuilder().
+				SetTitle("Deny Temporary Pass").
+				SetCustomID("tpr-deny-modal:" + userID).
+				AddActionRow(textInput).
+				Build(),
+		)
+
+		if err != nil {
+			slog.Error("error while creating deny modal", slog.Any("err", err))
 		}
 	}
 })
@@ -241,6 +286,47 @@ var tprListCommandListener = bot.NewListenerFunc(func(event *events.ApplicationC
 	}
 })
 
+var tprDenyModalListener = bot.NewListenerFunc(func(event *events.ModalSubmitInteractionCreate) {
+	if strings.HasPrefix(event.Data.CustomID, "tpr-deny-modal:") {
+		userID := strings.TrimPrefix(event.Data.CustomID, "tpr-deny-modal:")
+
+		_, ok := pendingTPRs[userID]
+		if !ok {
+			_ = event.CreateMessage(discord.NewMessageCreateBuilder().
+				SetEphemeral(true).
+				SetContent("Request not found or already processed.").
+				Build())
+			return
+		}
+		delete(pendingTPRs, userID)
+
+		reason, _ := event.Data.TextInputComponent("deny-reason")
+
+		// Notify user via DM
+		dmChannel, err := event.Client().Rest().CreateDMChannel(snowflake.MustParse(userID))
+		if err == nil {
+			_, err := event.Client().Rest().CreateMessage(dmChannel.ID(),
+				discord.NewMessageCreateBuilder().
+					SetContentf("❌ Your temporary pass request has been **denied**.\n**Reason:** %s", reason.Value).
+					Build(),
+			)
+			if err != nil {
+				slog.Error("failed to send DM to user", slog.Any("err", err))
+			}
+		} else {
+			slog.Error("failed to create DM channel", slog.Any("err", err))
+		}
+
+		// Acknowledge to admin and delete original message
+		_ = event.CreateMessage(discord.NewMessageCreateBuilder().
+			SetContent("Temporary pass request denied and user notified.").
+			SetEphemeral(true).
+			Build())
+
+		_ = event.Client().Rest().DeleteMessage(tprApprovalChannelID, event.Message.ID)
+	}
+})
+
 func InitTPRScheduler(client bot.Client) {
 	go func() {
 		for {
@@ -259,3 +345,6 @@ func InitTPRScheduler(client bot.Client) {
 		}
 	}()
 }
+
+// TODO: add function to auto populate campaign attendance google sheet with approved TPRs after each approval
+//		 OR fill text file with approved TPRs one per line via discord nickname i.e. SFC A. Hydra and to be used by prodigy's script (probably easier to do this way)
