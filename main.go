@@ -28,7 +28,6 @@ func main() {
 	slog.Info("build version", slog.String("version", buildType+"-"+buildVersion))
 	slog.Info("disgo version", slog.String("version", disgo.Version))
 
-	// Read the token from environment variable
 	token = os.Getenv("DISCORD_BOT_TOKEN")
 	if token == "" {
 		slog.Error("DISCORD_BOT_TOKEN is not set! Please check your environment or .env file.")
@@ -52,66 +51,113 @@ func main() {
 		slog.Error("error while building bot", slog.Any("err", err))
 		return
 	}
+
+	perscom_events.InitTPRScheduler()
+
 	defer client.Close(context.TODO())
 
-	{
-		primaryButtons := make([]discord.ButtonComponent, 0)
-		warningButtons := make([]discord.ButtonComponent, 0)
-		successButtons := make([]discord.ButtonComponent, 0)
-		for _, buttonEventHandler := range perscom_events.GetButtonEventHandlers() {
-			switch buttonEventHandler.Button.Style {
-			case discord.ButtonStylePremium: // We don't use because we don't sell things
-			case discord.ButtonStyleSuccess: // Green
-				successButtons = append(successButtons, buttonEventHandler.Button)
-			case discord.ButtonStylePrimary: // Blue
-				primaryButtons = append(primaryButtons, buttonEventHandler.Button)
-			case discord.ButtonStyleSecondary: // Gray
-				fallthrough
-			case discord.ButtonStyleLink: // Also gray?
-				fallthrough
-			case discord.ButtonStyleDanger: // Red
-				warningButtons = append(warningButtons, buttonEventHandler.Button)
-			default:
-				slog.Error("unknown button style", slog.Any("style", buttonEventHandler.Button.Style))
-				return
-			}
+	primaryButtons := make([]discord.ButtonComponent, 0)
+	warningButtons := make([]discord.ButtonComponent, 0)
+	successButtons := make([]discord.ButtonComponent, 0)
 
-			client.AddEventListeners(buttonEventHandler.EventListeners...)
+	for _, buttonEventHandler := range perscom_events.GetButtonEventHandlers() {
+		switch buttonEventHandler.Button.Style {
+		case discord.ButtonStylePremium:
+		case discord.ButtonStyleSuccess:
+			successButtons = append(successButtons, buttonEventHandler.Button)
+		case discord.ButtonStylePrimary:
+			primaryButtons = append(primaryButtons, buttonEventHandler.Button)
+		case discord.ButtonStyleSecondary, discord.ButtonStyleLink, discord.ButtonStyleDanger:
+			warningButtons = append(warningButtons, buttonEventHandler.Button)
+		default:
+			slog.Error("unknown button style", slog.Any("style", buttonEventHandler.Button.Style))
+			return
 		}
 
-		client.AddEventListeners(bot.NewListenerFunc(func(event *events.GuildReady) {
-			channels, err := client.Rest().GetGuildChannels(event.GuildID)
-			if err != nil {
-				slog.Error("error while getting channels", slog.Any("err", err))
-				return
-			}
+		client.AddEventListeners(buttonEventHandler.EventListeners...)
+	}
 
-			for _, channel := range channels {
-				if channel.Name() == "perscom" {
-					// Detect and delete previous "Hello World" messages from the bot
-					messages, err := client.Rest().GetMessages(channel.ID(), 0, 0, 0, 100)
-					if err != nil {
-						slog.Error("error while fetching messages", slog.Any("err", err))
-						return
-					}
+	client.AddEventListeners(bot.NewListenerFunc(func(event *events.GuildReady) {
+		slog.Info("Bot is ready, registering slash commands...")
 
-					found := false
-					for _, message := range messages {
-						if message.Author.ID == client.ID() {
-							found = true
-							break
-						}
-					}
+		// Register slash commands dynamically on bot ready
+		_, err := client.Rest().SetGuildCommands(
+			client.ID(),
+			event.GuildID,
+			[]discord.ApplicationCommandCreate{
+				discord.SlashCommandCreate{
+					Name:        "tpr-list",
+					Description: "List all approved temporary pass requests",
+				},
+				discord.SlashCommandCreate{
+					Name:        "loa-list",
+					Description: "List all approved leave of absence requests",
+				},
+				discord.SlashCommandCreate{
+					Name:        "school-list",
+					Description: "List all approved school and course requests",
+				},
+			},
+		)
+		if err != nil {
+			slog.Error("failed to register slash commands", slog.Any("err", err))
+			return
+		}
 
-					if !found {
-						sendButtonsBy5(client, primaryButtons, channel.ID())
-						sendButtonsBy5(client, successButtons, channel.ID())
-						sendButtonsBy5(client, warningButtons, channel.ID())
+		slog.Info("Slash commands registered successfully")
+
+		channels, err := client.Rest().GetGuildChannels(event.GuildID)
+		if err != nil {
+			slog.Error("error while getting channels", slog.Any("err", err))
+			return
+		}
+
+		for _, channel := range channels {
+			if channel.Name() == "perscom" {
+				messages, err := client.Rest().GetMessages(channel.ID(), 0, 0, 0, 100)
+				if err != nil {
+					slog.Error("error while fetching messages", slog.Any("err", err))
+					return
+				}
+
+				found := false
+				for _, message := range messages {
+					if message.Author.ID == client.ID() {
+						found = true
+						break
 					}
 				}
+
+				if !found {
+					sendButtonsBy5(client, primaryButtons, channel.ID())
+					sendButtonsBy5(client, successButtons, channel.ID())
+					sendButtonsBy5(client, warningButtons, channel.ID())
+				}
 			}
-		}))
-	}
+		}
+	}))
+
+	// Handle slash command interactions
+	client.AddEventListeners(bot.NewListenerFunc(func(event *events.ApplicationCommandInteractionCreate) {
+		switch event.Data.CommandName() {
+		case "tpr-list":
+			_ = event.CreateMessage(discord.NewMessageCreateBuilder().
+				SetContent("Approved Temporary Pass Requests:\n- Example 1\n- Example 2").
+				Build())
+		case "loa-list":
+			_ = event.CreateMessage(discord.NewMessageCreateBuilder().
+				SetContent("Approved Leave of Absence Requests:\n- LOA 1\n- LOA 2").
+				Build())
+		case "school-list":
+			_ = event.CreateMessage(discord.NewMessageCreateBuilder().
+				SetContent("Approved School Requests:\n- School 1\n- Course 2").
+				Build())
+		default:
+			_ = event.CreateMessage(discord.NewMessageCreateBuilder().
+				SetContent("Unknown command.").
+				Build())
+		}
+	}))
 
 	if err = client.OpenGateway(context.TODO()); err != nil {
 		slog.Error("error while connecting to gateway", slog.Any("err", err))

@@ -2,22 +2,52 @@ package perscom_events
 
 import (
 	_ "embed"
+	"fmt"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/disgoorg/snowflake/v2"
+
+	"log/slog"
+
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
-	"log/slog"
-	"time"
 )
 
 const temporaryPassRequestCustomID = "temporary-pass-request"
 const temporaryPassRequestSubmitCustomID = "temporary-pass-request-submit"
+const tprApprovePrefix = "tpr-approve"
+const tprDenyPrefix = "tpr-deny"
+
+// Set this to your actual channel ID for TPR requests
+const tprRequestChannelID = snowflake.ID(1382136230069928046) // <-- Replace with your channel ID
 
 //go:embed temporary_pass_request_description.txt
 var temporaryPassRequestDescription string
 
+type TemporaryPassRequest struct {
+	UserID      string
+	UserName    string
+	RequestedAt time.Time
+	Operation   time.Time
+}
+
+var (
+	approvedTPRs      []TemporaryPassRequest
+	approvedTPRsMutex sync.Mutex
+	pendingTPRs       = make(map[string]TemporaryPassRequest) // userID -> request
+)
+
 var temporaryPassRequest = ButtonEventHandler{
 	discord.NewPrimaryButton("Temporary Pass", temporaryPassRequestCustomID),
-	[]bot.EventListener{temporaryPassRequestEventListener, temporaryPassRequestSubmitEventListener},
+	[]bot.EventListener{
+		temporaryPassRequestEventListener,
+		temporaryPassRequestSubmitEventListener,
+		tprApprovalListener,
+		tprListCommandListener,
+	},
 }
 
 var temporaryPassRequestEventListener = bot.NewListenerFunc(func(event *events.ComponentInteractionCreate) {
@@ -43,20 +73,44 @@ var temporaryPassRequestEventListener = bot.NewListenerFunc(func(event *events.C
 
 var temporaryPassRequestSubmitEventListener = bot.NewListenerFunc(func(event *events.ComponentInteractionCreate) {
 	if event.Data.CustomID() == temporaryPassRequestSubmitCustomID {
-		//TODO: Submit TPR
-
-		// Ensure today's time is set to noon (12:00 PM) UTC
+		// Ensure today's time is set to 23:00 UTC
 		today := time.Now().UTC()
 		today = time.Date(today.Year(), today.Month(), today.Day(), 23, 0, 0, 0, time.UTC)
 
 		offset := (6 - int(today.Weekday()) + 7) % 7 // Calculate days until next Saturday
 		nextSaturday := today.AddDate(0, 0, offset)  // Add the offset to today's date to get next Saturday
 
-		err := event.UpdateMessage(
+		request := TemporaryPassRequest{
+			UserID:      event.User().ID.String(),
+			UserName:    event.User().Tag(),
+			RequestedAt: time.Now().UTC(),
+			Operation:   nextSaturday,
+		}
+
+		// Store pending request
+		pendingTPRs[request.UserID] = request
+
+		// Send to TPR channel for admin approval
+		_, err := event.Client().Rest().CreateMessage(tprRequestChannelID, discord.NewMessageCreateBuilder().
+			SetContentf("Temporary Pass Request from <@%s> (%s) for operation <t:%d:R>.\nRequested at: <t:%d:F>",
+				request.UserID, request.UserName, request.Operation.Unix(), request.RequestedAt.Unix()).
+			AddActionRow(
+				discord.NewPrimaryButton("Approve", tprApprovePrefix+request.UserID),
+				discord.NewDangerButton("Deny", tprDenyPrefix+request.UserID),
+			).
+			Build(),
+		)
+
+		if err != nil {
+			slog.Error("error while sending TPR to channel", slog.Any("err", err))
+		}
+
+		// Acknowledge to user
+		err = event.UpdateMessage(
 			discord.NewMessageUpdateBuilder().
 				ClearEmbeds().
 				ClearContainerComponents().
-				SetContentf("Submitted your temporary pass request for the operation <t:%d:R>.", nextSaturday.Unix()).
+				SetContent("Your temporary pass request has been submitted for review.").
 				Build(),
 		)
 
@@ -65,3 +119,95 @@ var temporaryPassRequestSubmitEventListener = bot.NewListenerFunc(func(event *ev
 		}
 	}
 })
+
+var tprApprovalListener = bot.NewListenerFunc(func(event *events.ComponentInteractionCreate) {
+	customID := event.Data.CustomID()
+	if strings.HasPrefix(customID, tprApprovePrefix) {
+		userID := strings.TrimPrefix(customID, tprApprovePrefix)
+		request, ok := pendingTPRs[userID]
+		if !ok {
+			event.UpdateMessage(discord.NewMessageUpdateBuilder().
+				SetContent("Request not found or already processed.").
+				ClearContainerComponents().
+				Build(),
+			)
+			return
+		}
+		approvedTPRsMutex.Lock()
+		approvedTPRs = append(approvedTPRs, request)
+		approvedTPRsMutex.Unlock()
+		delete(pendingTPRs, userID)
+
+		event.UpdateMessage(discord.NewMessageUpdateBuilder().
+			SetContentf("✅ Approved TPR for <@%s> for operation <t:%d:R>.", request.UserID, request.Operation.Unix()).
+			ClearContainerComponents().
+			Build(),
+		)
+		// Optionally DM the user about approval (requires bot permissions)
+	} else if strings.HasPrefix(customID, tprDenyPrefix) {
+		userID := strings.TrimPrefix(customID, tprDenyPrefix)
+		request, ok := pendingTPRs[userID]
+		if !ok {
+			event.UpdateMessage(discord.NewMessageUpdateBuilder().
+				SetContent("Request not found or already processed.").
+				ClearContainerComponents().
+				Build(),
+			)
+			return
+		}
+		delete(pendingTPRs, userID)
+		event.UpdateMessage(discord.NewMessageUpdateBuilder().
+			SetContentf("❌ Denied TPR for <@%s>.", request.UserID).
+			ClearContainerComponents().
+			Build(),
+		)
+		// Optionally DM the user about denial (requires bot permissions)
+	}
+})
+
+// Slash command: /tpr-list
+var tprListCommandListener = bot.NewListenerFunc(func(event *events.ApplicationCommandInteractionCreate) {
+	if event.Data.CommandName() == "tpr-list" {
+		approvedTPRsMutex.Lock()
+		defer approvedTPRsMutex.Unlock()
+		if len(approvedTPRs) == 0 {
+			event.CreateMessage(discord.NewMessageCreateBuilder().
+				SetContent("No approved temporary pass requests.").
+				Build(),
+			)
+			return
+		}
+		var content strings.Builder
+		content.WriteString("**Approved Temporary Pass Requests:**\n")
+		for _, tpr := range approvedTPRs {
+			content.WriteString(fmt.Sprintf("- <@%s> for <t:%d:R>\n", tpr.UserID, tpr.Operation.Unix()))
+		}
+		event.CreateMessage(discord.NewMessageCreateBuilder().
+			SetContent(content.String()).
+			Build(),
+		)
+	}
+})
+
+// Scheduler to clear the list every Sunday at midnight UTC
+func startTPRClearScheduler() {
+	go func() {
+		for {
+			now := time.Now().UTC()
+			// Calculate next Sunday midnight
+			daysUntilSunday := (7 - int(now.Weekday())) % 7
+			nextSunday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).AddDate(0, 0, daysUntilSunday)
+			duration := nextSunday.Sub(now)
+			time.Sleep(duration)
+			approvedTPRsMutex.Lock()
+			approvedTPRs = nil
+			approvedTPRsMutex.Unlock()
+			slog.Info("Cleared approved TPRs for new week")
+		}
+	}()
+}
+
+// Call this function when your bot starts (e.g., in main.go)
+func InitTPRScheduler() {
+	startTPRClearScheduler()
+}
