@@ -52,7 +52,7 @@ func main() {
 		return
 	}
 
-	perscom_events.InitTPRScheduler()
+	perscom_events.InitTPRScheduler(client)
 
 	defer client.Close(context.TODO())
 
