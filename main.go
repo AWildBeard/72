@@ -94,6 +94,17 @@ func main() {
 					Description: "List all approved leave of absence requests",
 				},
 				discord.SlashCommandCreate{
+					Name:        "loa-clear",
+					Description: "Clear leave of absence requests by nickname",
+					Options: []discord.ApplicationCommandOption{
+						discord.ApplicationCommandOptionString{
+							Name:        "nickname",
+							Description: "The nickname to clear LOAs for",
+							Required:    true,
+						},
+					},
+				},
+				discord.SlashCommandCreate{
 					Name:        "school-list",
 					Description: "List all approved school and course requests",
 				},
@@ -138,26 +149,30 @@ func main() {
 	}))
 
 	// Handle slash command interactions
-	client.AddEventListeners(bot.NewListenerFunc(func(event *events.ApplicationCommandInteractionCreate) {
-		switch event.Data.CommandName() {
-		case "tpr-list":
-			_ = event.CreateMessage(discord.NewMessageCreateBuilder().
-				SetContent("Approved Temporary Pass Requests:\n- Example 1\n- Example 2").
-				Build())
-		case "loa-list":
-			_ = event.CreateMessage(discord.NewMessageCreateBuilder().
-				SetContent("Approved Leave of Absence Requests:\n- LOA 1\n- LOA 2").
-				Build())
-		case "school-list":
-			_ = event.CreateMessage(discord.NewMessageCreateBuilder().
-				SetContent("Approved School Requests:\n- School 1\n- Course 2").
-				Build())
-		default:
-			_ = event.CreateMessage(discord.NewMessageCreateBuilder().
-				SetContent("Unknown command.").
-				Build())
-		}
-	}))
+	// client.AddEventListeners(bot.NewListenerFunc(func(event *events.ApplicationCommandInteractionCreate) {
+	// 	switch event.Data.CommandName() {
+	// 	case "tpr-list":
+	// 		_ = event.CreateMessage(discord.NewMessageCreateBuilder().
+	// 			SetContent("Approved Temporary Pass Requests:\n- Example 1\n- Example 2").
+	// 			Build())
+	// 	case "loa-list":
+	// 		_ = event.CreateMessage(discord.NewMessageCreateBuilder().
+	// 			SetContent("Approved Leave of Absence Requests:\n- LOA 1\n- LOA 2").
+	// 			Build())
+	// 	case "loa-clear":
+	// 		_ = event.CreateMessage(discord.NewMessageCreateBuilder().
+	// 			SetContent("Clear LOAs by name.").
+	// 			Build())
+	// 	case "school-list":
+	// 		_ = event.CreateMessage(discord.NewMessageCreateBuilder().
+	// 			SetContent("Approved School Requests:\n- School 1\n- Course 2").
+	// 			Build())
+	// 	default:
+	// 		_ = event.CreateMessage(discord.NewMessageCreateBuilder().
+	// 			SetContent("Unknown command.").
+	// 			Build())
+	// 	}
+	// }))
 
 	if err = client.OpenGateway(context.TODO()); err != nil {
 		slog.Error("error while connecting to gateway", slog.Any("err", err))
