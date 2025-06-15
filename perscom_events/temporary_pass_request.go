@@ -85,6 +85,21 @@ var (
 	forumMutex     sync.Mutex
 )
 
+type DeniedTPR struct {
+	UserID      string
+	UserName    string
+	RequestedAt time.Time
+	Operation   time.Time
+	DeniedBy    string
+	DeniedAt    time.Time
+	Reason      string
+}
+
+var (
+	deniedTPRs      []DeniedTPR
+	deniedTPRsMutex sync.Mutex
+)
+
 var temporaryPassRequest = ButtonEventHandler{
 	discord.NewPrimaryButton("Temporary Pass", temporaryPassRequestCustomID),
 	[]bot.EventListener{
@@ -197,7 +212,7 @@ var tprApprovalListener = bot.NewListenerFunc(func(event *events.ComponentIntera
 		defer forumMutex.Unlock()
 
 		var contentBuilder strings.Builder
-		contentBuilder.WriteString("**Approved Temporary Pass Requests:**\n")
+		contentBuilder.WriteString("**Temporary Pass Request Log:**\n")
 
 		approvedTPRsMutex.Lock()
 		for _, tpr := range approvedTPRs {
@@ -205,6 +220,13 @@ var tprApprovalListener = bot.NewListenerFunc(func(event *events.ComponentIntera
 				"• <@%s> approved by <@%s> at %s\n", tpr.UserID, tpr.ApprovedBy, tpr.ApprovedAt.Format(time.RFC1123)))
 		}
 		approvedTPRsMutex.Unlock()
+
+		deniedTPRsMutex.Lock()
+		for _, tpr := range deniedTPRs {
+			contentBuilder.WriteString(fmt.Sprintf(
+				"• <@%s> denied by <@%s> at %s — reason: %s\n", tpr.UserID, tpr.DeniedBy, tpr.DeniedAt.Format(time.RFC1123), tpr.Reason))
+		}
+		deniedTPRsMutex.Unlock()
 
 		if forumMessageID == 0 {
 			msg, err := event.Client().Rest().CreateMessage(tprForumThreadID,
@@ -290,7 +312,7 @@ var tprDenyModalListener = bot.NewListenerFunc(func(event *events.ModalSubmitInt
 	if strings.HasPrefix(event.Data.CustomID, "tpr-deny-modal:") {
 		userID := strings.TrimPrefix(event.Data.CustomID, "tpr-deny-modal:")
 
-		_, ok := pendingTPRs[userID]
+		request, ok := pendingTPRs[userID]
 		if !ok {
 			_ = event.CreateMessage(discord.NewMessageCreateBuilder().
 				SetEphemeral(true).
@@ -301,6 +323,19 @@ var tprDenyModalListener = bot.NewListenerFunc(func(event *events.ModalSubmitInt
 		delete(pendingTPRs, userID)
 
 		reason, _ := event.Data.TextInputComponent("deny-reason")
+
+		// Store denied TPR
+		deniedTPRsMutex.Lock()
+		deniedTPRs = append(deniedTPRs, DeniedTPR{
+			UserID:      request.UserID,
+			UserName:    request.UserName,
+			RequestedAt: request.RequestedAt,
+			Operation:   request.Operation,
+			DeniedBy:    event.User().Tag(),
+			DeniedAt:    time.Now().UTC(),
+			Reason:      reason.Value,
+		})
+		deniedTPRsMutex.Unlock()
 
 		// Notify user via DM
 		dmChannel, err := event.Client().Rest().CreateDMChannel(snowflake.MustParse(userID))
@@ -323,6 +358,42 @@ var tprDenyModalListener = bot.NewListenerFunc(func(event *events.ModalSubmitInt
 			SetEphemeral(true).
 			Build())
 
+		forumMutex.Lock()
+		defer forumMutex.Unlock()
+
+		var contentBuilder strings.Builder
+		contentBuilder.WriteString("**Temporary Pass Request Log:**\n")
+
+		approvedTPRsMutex.Lock()
+		for _, tpr := range approvedTPRs {
+			contentBuilder.WriteString(fmt.Sprintf(
+				"• <@%s> approved by <@%s> at %s\n", tpr.UserID, tpr.ApprovedBy, tpr.ApprovedAt.Format(time.RFC1123)))
+		}
+		approvedTPRsMutex.Unlock()
+
+		deniedTPRsMutex.Lock()
+		for _, tpr := range deniedTPRs {
+			contentBuilder.WriteString(fmt.Sprintf(
+				"• <@%s> denied by <@%s> at %s — reason: %s\n", tpr.UserID, tpr.DeniedBy, tpr.DeniedAt.Format(time.RFC1123), tpr.Reason))
+		}
+		deniedTPRsMutex.Unlock()
+
+		if forumMessageID == 0 {
+			msg, err := event.Client().Rest().CreateMessage(tprForumThreadID,
+				discord.NewMessageCreateBuilder().SetContent(contentBuilder.String()).Build())
+			if err != nil {
+				slog.Error("failed to create forum summary message", slog.Any("err", err))
+			} else {
+				forumMessageID = msg.ID
+			}
+		} else {
+			_, err := event.Client().Rest().UpdateMessage(tprForumThreadID, forumMessageID,
+				discord.NewMessageUpdateBuilder().SetContent(contentBuilder.String()).Build())
+			if err != nil {
+				slog.Error("failed to update forum summary message", slog.Any("err", err))
+			}
+		}
+
 		_ = event.Client().Rest().DeleteMessage(tprApprovalChannelID, event.Message.ID)
 	}
 })
@@ -334,7 +405,13 @@ func InitTPRScheduler(client bot.Client) {
 			daysUntilSunday := (7 - int(now.Weekday())) % 7
 			nextSunday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).AddDate(0, 0, daysUntilSunday)
 			duration := nextSunday.Sub(now)
+			if duration <= 0 {
+				// If duration is zero or negative, sleep for 1 second to avoid tight loop
+				time.Sleep(time.Second)
+				continue
+			}
 			time.Sleep(duration)
+
 			approvedTPRsMutex.Lock()
 			approvedTPRs = nil
 			approvedTPRsMutex.Unlock()
