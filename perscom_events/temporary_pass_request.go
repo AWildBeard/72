@@ -69,11 +69,9 @@ type TemporaryPassRequest struct {
 
 type ApprovedTPR struct {
 	UserID      string
-	Nickname    string
 	UserName    string
 	RequestedAt time.Time
 	Operation   time.Time
-	Approved    *bool
 	ApprovedBy  string
 	ApprovedAt  time.Time
 }
@@ -89,11 +87,9 @@ var (
 
 type DeniedTPR struct {
 	UserID      string
-	Nickname    string
 	UserName    string
 	RequestedAt time.Time
 	Operation   time.Time
-	Denied      *bool
 	DeniedBy    string
 	DeniedAt    time.Time
 	Reason      string
@@ -198,48 +194,31 @@ var tprApprovalListener = bot.NewListenerFunc(func(event *events.ComponentIntera
 
 		delete(pendingTPRs, userID)
 
-		var nickname string
-		if event.Member() != nil && event.Member().Nick != nil {
-			nickname = *event.Member().Nick
-		} else {
-			nickname = event.User().Username
-		}
-
 		approved := ApprovedTPR{
 			UserID:      request.UserID,
-			Nickname:    nickname,
 			UserName:    request.UserName,
 			RequestedAt: request.RequestedAt,
 			Operation:   request.Operation,
-			ApprovedBy:  nickname,
+			ApprovedBy:  event.User().Tag(),
 			ApprovedAt:  time.Now().UTC(),
 		}
 
 		approvedTPRsMutex.Lock()
-		for i := range approvedTPRs {
-			if approvedTPRs[i].UserID == userID {
-				approved := true
-				approvedTPRs[i].Approved = &approved
-				approvedTPRs[i].ApprovedBy = event.User().Username
-				break
-			}
-		}
 		approvedTPRs = append(approvedTPRs, approved)
 		approvedTPRsMutex.Unlock()
 
 		// Update forum summary
-
 		forumMutex.Lock()
 		defer forumMutex.Unlock()
 
 		var contentBuilder strings.Builder
-		contentBuilder.WriteString("**Temporary Pass Request Log:**")
+		contentBuilder.WriteString("**Temporary Pass Request Log:**\n")
 
 		approvedTPRsMutex.Lock()
 		for _, tpr := range approvedTPRs {
 			contentBuilder.WriteString(fmt.Sprintf(
-				"\n\n• TPR from **%s**\n• ✅ approved by **%s**\n• submitted at %s",
-				tpr.Nickname,
+				"• <@%s> approved by <@%s> at %s\n",
+				tpr.UserID,
 				tpr.ApprovedBy,
 				tpr.ApprovedAt.In(time.FixedZone("CST", -6*60*60)).Format("Mon, 02 Jan 2006 15:04 MST")))
 		}
@@ -248,8 +227,7 @@ var tprApprovalListener = bot.NewListenerFunc(func(event *events.ComponentIntera
 		deniedTPRsMutex.Lock()
 		for _, tpr := range deniedTPRs {
 			contentBuilder.WriteString(fmt.Sprintf(
-				"• <@%s> denied by <@%s> at %s — reason: %s\n",
-				tpr.UserID, tpr.DeniedBy, tpr.DeniedAt.Format(time.RFC1123), tpr.Reason))
+				"• <@%s> denied by <@%s> at %s — reason: %s\n", tpr.UserID, tpr.DeniedBy, tpr.DeniedAt.Format(time.RFC1123), tpr.Reason))
 		}
 		deniedTPRsMutex.Unlock()
 
@@ -274,13 +252,9 @@ var tprApprovalListener = bot.NewListenerFunc(func(event *events.ComponentIntera
 		if err != nil {
 			slog.Error("failed to create DM channel", slog.Any("err", err))
 		} else {
-			expiresAt := approved.Operation.Add(24 * time.Hour)
 			_, err := event.Client().Rest().CreateMessage(dmChannel.ID(),
 				discord.NewMessageCreateBuilder().
-					SetContent(fmt.Sprintf(
-						"✅ Your temporary pass request has been **approved**.\nIt will expire on: <t:%d:F>, <t:%d:R>",
-						expiresAt.Unix(), expiresAt.Unix(),
-					)).
+					SetContent("✅ Your temporary pass request has been **approved**.").
 					Build(),
 			)
 			if err != nil {
@@ -353,26 +327,11 @@ var tprDenyModalListener = bot.NewListenerFunc(func(event *events.ModalSubmitInt
 
 		reason, _ := event.Data.TextInputComponent("deny-reason")
 
-		var nickname string
-		if event.Member() != nil && event.Member().Nick != nil {
-			nickname = *event.Member().Nick
-		} else {
-			nickname = event.User().Username
-		}
 		// Store denied TPR
 		deniedTPRsMutex.Lock()
-		for i := range deniedTPRs {
-			if deniedTPRs[i].UserID == userID {
-				approved := true
-				deniedTPRs[i].Denied = &approved
-				deniedTPRs[i].DeniedBy = event.User().Username
-				break
-			}
-		}
 		deniedTPRs = append(deniedTPRs, DeniedTPR{
 			UserID:      request.UserID,
 			UserName:    request.UserName,
-			Nickname:    nickname,
 			RequestedAt: request.RequestedAt,
 			Operation:   request.Operation,
 			DeniedBy:    event.User().Tag(),
@@ -406,13 +365,13 @@ var tprDenyModalListener = bot.NewListenerFunc(func(event *events.ModalSubmitInt
 		defer forumMutex.Unlock()
 
 		var contentBuilder strings.Builder
-		contentBuilder.WriteString("**Temporary Pass Request Log:**")
+		contentBuilder.WriteString("**Temporary Pass Request Log:**\n")
 
 		approvedTPRsMutex.Lock()
 		for _, tpr := range approvedTPRs {
 			contentBuilder.WriteString(fmt.Sprintf(
-				"\n\n• TPR from **%s**\n• ✅ approved by **%s**\n• submitted at %s",
-				tpr.Nickname,
+				"• <@%s> approved by <@%s> at %s\n",
+				tpr.UserID,
 				tpr.ApprovedBy,
 				tpr.ApprovedAt.In(time.FixedZone("CST", -6*60*60)).Format("Mon, 02 Jan 2006 15:04 MST")))
 		}
@@ -421,11 +380,7 @@ var tprDenyModalListener = bot.NewListenerFunc(func(event *events.ModalSubmitInt
 		deniedTPRsMutex.Lock()
 		for _, tpr := range deniedTPRs {
 			contentBuilder.WriteString(fmt.Sprintf(
-				"\n\n• TPR from **%s**\n• ❌ denied by **%s**\n• submitted at %s\n• reason: **%s**",
-				tpr.Nickname,
-				tpr.DeniedBy,
-				tpr.DeniedAt.In(time.FixedZone("CST", -6*60*60)).Format("Mon, 02 Jan 2006 15:04 MST"),
-				tpr.Reason))
+				"• <@%s> denied by <@%s> at %s — reason: %s\n", tpr.UserID, tpr.DeniedBy, tpr.DeniedAt.Format(time.RFC1123), tpr.Reason))
 		}
 		deniedTPRsMutex.Unlock()
 

@@ -18,8 +18,9 @@ import (
 const leaveOfAbsenceCustomID = "leave-of-absence"
 const leaveOfAbsenceModalCustomID = "leave-of-absence-modal"
 const leaveOfAbsenceModalSubmissionCustomID = "leave-of-absence-modal-submit"
-const loaForumThreadID = snowflake.ID(1382882958314307604)     // Replace with your real forum thread ID
-const loaApprovalChannelID = snowflake.ID(1382136230069928046) // Replace with your real approval channel ID
+
+const loaForumThreadID = snowflake.ID(1382882958314307604)
+const loaApprovalChannelID = snowflake.ID(1382136230069928046)
 const loaApprovePrefix = "loa-approve"
 const loaDenyPrefix = "loa-deny"
 const loaDenyModalPrefix = "loa-deny-modal:"
@@ -236,7 +237,7 @@ var loaDenyModalListener = bot.NewListenerFunc(func(event *events.ModalSubmitInt
 			SetContent("LOA denied and user notified.").
 			Build())
 
-		_ = event.Client().Rest().DeleteMessage(tprApprovalChannelID, event.Message.ID)
+		_ = event.Client().Rest().DeleteMessage(loaApprovalChannelID, event.Message.ID)
 	}
 })
 
@@ -261,7 +262,10 @@ var loaListCommandListener = bot.NewListenerFunc(func(event *events.ApplicationC
 				if *req.Approved {
 					status = "✅ approved by " + req.ReviewedBy
 				} else {
-					status = fmt.Sprintf("❌ denied by %s — _%s_", req.ReviewedBy, req.DenyReason)
+					event.CreateMessage(discord.NewMessageCreateBuilder().
+						SetContent("No current requests.").
+						Build())
+					return
 				}
 				sb.WriteString(fmt.Sprintf(
 					"\n• <@%s> until (approximate return date): **%s** — reason: **%s** (%s)\n",
@@ -389,8 +393,12 @@ func updateLOAForumPost(client bot.Client) {
 		}
 
 		newEntries.WriteString(fmt.Sprintf(
-			"\n• <@%s> until (approximate return date): **%s** — reason: **%s** (%s)\n",
-			req.UserID, req.ReturnETA, req.Reason, status,
+			"\n• %s submitted LOA request at %s until: **%s** reason: **%s** (Status: %s)\n",
+			req.NickName,
+			req.Submitted.In(time.FixedZone("CST", -6*60*60)).Format("Mon, 02 Jan 2006 15:04 MST"),
+			req.ReturnETA,
+			req.Reason,
+			status,
 		))
 	}
 

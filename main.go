@@ -108,6 +108,17 @@ func main() {
 					Name:        "school-list",
 					Description: "List all approved school and course requests",
 				},
+				discord.SlashCommandCreate{
+					Name:        "school-clear",
+					Description: "Clear school or course requests by nickname",
+					Options: []discord.ApplicationCommandOption{
+						discord.ApplicationCommandOptionString{
+							Name:        "nickname",
+							Description: "The nickname to clear School or Course requests for",
+							Required:    true,
+						},
+					},
+				},
 			},
 		)
 		if err != nil {
