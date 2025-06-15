@@ -217,7 +217,10 @@ var tprApprovalListener = bot.NewListenerFunc(func(event *events.ComponentIntera
 		approvedTPRsMutex.Lock()
 		for _, tpr := range approvedTPRs {
 			contentBuilder.WriteString(fmt.Sprintf(
-				"• <@%s> approved by <@%s> at %s\n", tpr.UserID, tpr.ApprovedBy, tpr.ApprovedAt.Format(time.RFC1123)))
+				"• <@%s> approved by <@%s> at %s\n",
+				tpr.UserID,
+				tpr.ApprovedBy,
+				tpr.ApprovedAt.In(time.FixedZone("CST", -6*60*60)).Format("Mon, 02 Jan 2006 15:04 MST")))
 		}
 		approvedTPRsMutex.Unlock()
 
@@ -367,7 +370,10 @@ var tprDenyModalListener = bot.NewListenerFunc(func(event *events.ModalSubmitInt
 		approvedTPRsMutex.Lock()
 		for _, tpr := range approvedTPRs {
 			contentBuilder.WriteString(fmt.Sprintf(
-				"• <@%s> approved by <@%s> at %s\n", tpr.UserID, tpr.ApprovedBy, tpr.ApprovedAt.Format(time.RFC1123)))
+				"• <@%s> approved by <@%s> at %s\n",
+				tpr.UserID,
+				tpr.ApprovedBy,
+				tpr.ApprovedAt.In(time.FixedZone("CST", -6*60*60)).Format("Mon, 02 Jan 2006 15:04 MST")))
 		}
 		approvedTPRsMutex.Unlock()
 
