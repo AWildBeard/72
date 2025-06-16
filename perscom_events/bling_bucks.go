@@ -103,16 +103,14 @@ var blingBucksSelectedOptionEventListener = bot.NewListenerFunc(func(event *even
 			err = event.Modal(discord.NewModalCreateBuilder().
 				SetTitle("Bling Bucks Request").
 				SetCustomID(blingBucksModalSubmit + ":" + selectedOption).
-				AddActionRow(discord.NewShortTextInput("numTicket", "Number of Tickets")).
+				AddActionRow(discord.NewShortTextInput("numTicket", "Number of Tickets (max 3)")).
 				Build(),
 			)
 		} else {
 			err = event.Modal(discord.NewModalCreateBuilder().
 				SetTitle("Bling Bucks Request").
 				SetCustomID(blingBucksModalSubmit + ":" + selectedOption).
-				AddActionRow(discord.NewShortTextInput("name", "In-Game Name (must be exact)")).
-				AddActionRow(discord.NewShortTextInput("player_id", "Player ID")).
-				AddActionRow(discord.NewParagraphTextInput("description", "Link and/or Description")).
+				AddActionRow(discord.NewParagraphTextInput("description", "Request For Customization (must have class name and image link)")).
 				Build(),
 			)
 		}
@@ -221,8 +219,8 @@ var BBModalSubmissionEventListener = bot.NewListenerFunc(func(event *events.Moda
 			_, err := event.Client().Rest().CreateMessage(
 				BBApprovalChannelID,
 				discord.NewMessageCreateBuilder().
-					SetContent(fmt.Sprintf("BB **%s** request submitted by **%s**\n• PlayerID: **%s** Description: **%s**",
-						selectedBBOption, BB.Nickname, BB.PlayerID, BB.Description)).
+					SetContent(fmt.Sprintf("BB **%s** request submitted by **%s**\n• Description: **%s**",
+						selectedBBOption, BB.Nickname, BB.Description)).
 					AddActionRow(
 						discord.NewPrimaryButton("Approve", BBApprovePrefix+BB.UserID),
 						discord.NewDangerButton("Deny", BBDenyPrefix+BB.UserID),
@@ -365,11 +363,10 @@ var BBListCommandListener = bot.NewListenerFunc(func(event *events.ApplicationCo
 					return
 				}
 				sb.WriteString(fmt.Sprintf(
-					"\n• BB **%s** submitted by **%s** at %s with Player ID: **%s** Description: **%s** (Status: %s)\n",
+					"\n• BB **%s** submitted by **%s** at %s Description: **%s** (Status: %s)\n",
 					req.BBOption,
 					req.Nickname,
 					req.Submitted.In(time.FixedZone("CST", -6*60*60)).Format("Mon, 02 Jan 2006 15:04 MST"),
-					req.PlayerID,
 					req.Description,
 					status,
 				))
@@ -505,11 +502,10 @@ func updateBBForumPost(client bot.Client) {
 			))
 		} else {
 			newEntries.WriteString(fmt.Sprintf(
-				"\n• BB **%s** submitted by **%s** at %s with Player ID: **%s** Description: **%s** (Status: %s)\n",
+				"\n• BB **%s** submitted by **%s** at %s Description: **%s** (Status: %s)\n",
 				req.BBOption,
 				req.Nickname,
 				req.Submitted.In(time.FixedZone("CST", -6*60*60)).Format("Mon, 02 Jan 2006 15:04 MST"),
-				req.PlayerID,
 				req.Description,
 				status,
 			))

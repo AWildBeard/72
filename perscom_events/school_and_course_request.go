@@ -120,7 +120,6 @@ var schoolAndCourseModalSubmitEventListener = bot.NewListenerFunc(func(event *ev
 			return
 		}
 
-		// TODO: Grab availability from req and make forum post
 		err := event.UpdateMessage(discord.NewMessageUpdateBuilder().
 			ClearEmbeds().
 			ClearContainerComponents().
