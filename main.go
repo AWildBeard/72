@@ -119,6 +119,21 @@ func main() {
 						},
 					},
 				},
+				discord.SlashCommandCreate{
+					Name:        "bb-list",
+					Description: "List all approved BB requests",
+				},
+				discord.SlashCommandCreate{
+					Name:        "bb-clear",
+					Description: "Clear BB requests by nickname",
+					Options: []discord.ApplicationCommandOption{
+						discord.ApplicationCommandOptionString{
+							Name:        "nickname",
+							Description: "The nickname to clear BB requests for",
+							Required:    true,
+						},
+					},
+				},
 			},
 		)
 		if err != nil {
