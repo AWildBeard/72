@@ -110,7 +110,9 @@ var blingBucksSelectedOptionEventListener = bot.NewListenerFunc(func(event *even
 			err = event.Modal(discord.NewModalCreateBuilder().
 				SetTitle("Bling Bucks Request").
 				SetCustomID(blingBucksModalSubmit + ":" + selectedOption).
-				AddActionRow(discord.NewParagraphTextInput("description", "Request For Customization (must have class name and image link)")).
+				// AddActionRow(discord.NewShortTextInput("name", "In-Game Name (must be exact)")).
+				// AddActionRow(discord.NewShortTextInput("player_id", "Player ID")).
+				AddActionRow(discord.NewParagraphTextInput("description", "Description (class name and link)")). // this has a character limit for the label!!!
 				Build(),
 			)
 		}
@@ -363,7 +365,7 @@ var BBListCommandListener = bot.NewListenerFunc(func(event *events.ApplicationCo
 					return
 				}
 				sb.WriteString(fmt.Sprintf(
-					"\n• BB **%s** submitted by **%s** at %s Description: **%s** (Status: %s)\n",
+					"\n• BB **%s** submitted by **%s** at %s with Description: **%s** (Status: %s)\n",
 					req.BBOption,
 					req.Nickname,
 					req.Submitted.In(time.FixedZone("CST", -6*60*60)).Format("Mon, 02 Jan 2006 15:04 MST"),
