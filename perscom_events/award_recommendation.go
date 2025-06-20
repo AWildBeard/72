@@ -20,6 +20,10 @@ const awardRecommendationModalSubmitCustomID = "award-recommendation-modal-submi
 
 const awdForumThreadID = snowflake.ID(1385471130894209144)
 const awdApprovalChannelID = snowflake.ID(1382136230069928046)
+
+//const awdForumThreadID = snowflake.ID(1385734844121612308)		// for 72nd server
+//const awdApprovalChannelID = snowflake.ID(645668825668517888)		// for 72nd server
+
 const awdApprovePrefix = "awd-approve"
 const awdDenyPrefix = "awd-deny"
 const awdDenyModalPrefix = "awd-deny-modal:"

@@ -56,6 +56,9 @@ const tprDenyPrefix = "tpr-deny"
 const tprApprovalChannelID = snowflake.ID(1382136230069928046)
 const tprForumThreadID = snowflake.ID(1382212750289408030) // TPRs forum thread ID
 
+//const tprForumThreadID = snowflake.ID(1385734291626922146)		// for 72nd server
+//const tprApprovalChannelID = snowflake.ID(645668825668517888)		// for 72nd server
+
 //go:embed temporary_pass_request_description.txt
 var temporaryPassRequestDescription string
 

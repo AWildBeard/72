@@ -20,6 +20,10 @@ const squadXMLSubmitModalCustomID = "squad-xml-modal-submit"
 
 const xmlForumThreadID = snowflake.ID(1384022967645769838)
 const xmlApprovalChannelID = snowflake.ID(1382136230069928046)
+
+//const xmlForumThreadID = snowflake.ID(1385734680661201018)		// for 72nd server
+//const xmlApprovalChannelID = snowflake.ID(645668825668517888)		// for 72nd server
+
 const xmlApprovePrefix = "xml-approve"
 const xmlDenyPrefix = "xml-deny"
 const xmlDenyModalPrefix = "xml-deny-modal:"

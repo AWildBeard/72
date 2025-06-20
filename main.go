@@ -173,7 +173,7 @@ func main() {
 		}
 
 		for _, channel := range channels {
-			if channel.Name() == "perscom" {
+			if channel.Name() == "perscom-requests" {
 				messages, err := client.Rest().GetMessages(channel.ID(), 0, 0, 0, 100)
 				if err != nil {
 					slog.Error("error while fetching messages", slog.Any("err", err))
