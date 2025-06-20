@@ -21,6 +21,7 @@ const leaveOfAbsenceModalSubmissionCustomID = "leave-of-absence-modal-submit"
 
 const loaForumThreadID = snowflake.ID(1382882958314307604)
 const loaApprovalChannelID = snowflake.ID(1382136230069928046)
+
 const loaApprovePrefix = "loa-approve"
 const loaDenyPrefix = "loa-deny"
 const loaDenyModalPrefix = "loa-deny-modal:"
@@ -375,7 +376,7 @@ func updateLOAForumPost(client bot.Client) {
 		}
 
 		// More stable and readable key
-		key := fmt.Sprintf("%s|%s|%s", req.UserID, req.ReturnETA, req.Reason)
+		key := fmt.Sprintf("%s|%s|%s|%v", req.UserID, req.ReturnETA, req.Reason, req.Approved)
 
 		loaForumAddedMutex.Lock()
 		if loaForumAdded[key] {
