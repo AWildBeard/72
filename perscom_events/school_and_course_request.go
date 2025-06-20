@@ -23,6 +23,10 @@ const selectedCourseAvailabilityModalSubmit = "selected-course-availability-moda
 
 const SandCForumThreadID = snowflake.ID(1383869877688729713)
 const SandCApprovalChannelID = snowflake.ID(1382136230069928046)
+
+//const SandCForumThreadID = snowflake.ID(1385734455582523513)		// for 72nd server
+//const SandCApprovalChannelID = snowflake.ID(645668825668517888)	// for 72nd server
+
 const SandCApprovePrefix = "sandc-approve"
 const SandCDenyPrefix = "sandc-deny"
 const SandCDenyModalPrefix = "sandc-deny-modal:"
@@ -40,6 +44,7 @@ type SchoolAndCourse struct {
 	Approved     *bool
 	ReviewedBy   string
 	DenyReason   string
+	ID           string
 }
 
 var (
@@ -123,7 +128,7 @@ var schoolAndCourseModalSubmitEventListener = bot.NewListenerFunc(func(event *ev
 		err := event.UpdateMessage(discord.NewMessageUpdateBuilder().
 			ClearEmbeds().
 			ClearContainerComponents().
-			SetContentf("Submitted your request for \"%v\".", course).
+			SetContentf("✅ Submitted your request for \"%v\". You will receive updates via DM.", course).
 			Build())
 
 		if err != nil {
@@ -157,6 +162,7 @@ var SandCModalSubmissionEventListener = bot.NewListenerFunc(func(event *events.M
 			Username:     event.User().Tag(),
 			Nickname:     nickname,
 			Submitted:    time.Now().UTC(),
+			ID:           snowflake.New(time.Now()).String(),
 		}
 
 		SandCRequestsMutex.Lock()
@@ -169,8 +175,8 @@ var SandCModalSubmissionEventListener = bot.NewListenerFunc(func(event *events.M
 				SetContent(fmt.Sprintf("**%s** request submitted by **%s**\n• Availability: **%s**",
 					SandC.CourseName, SandC.Nickname, SandC.Availability)).
 				AddActionRow(
-					discord.NewPrimaryButton("Approve", SandCApprovePrefix+SandC.UserID),
-					discord.NewDangerButton("Deny", SandCDenyPrefix+SandC.UserID),
+					discord.NewPrimaryButton("Approve", SandCApprovePrefix+SandC.ID),
+					discord.NewDangerButton("Deny", SandCDenyPrefix+SandC.ID),
 				).
 				Build(),
 		)
@@ -198,11 +204,10 @@ var SandCModalSubmissionEventListener = bot.NewListenerFunc(func(event *events.M
 var SandCApprovalButtonListener = bot.NewListenerFunc(func(event *events.ComponentInteractionCreate) {
 	customID := event.Data.CustomID()
 	if strings.HasPrefix(customID, SandCApprovePrefix) {
-		userID := strings.TrimPrefix(customID, SandCApprovePrefix)
-
+		reqID := strings.TrimPrefix(customID, SandCApprovePrefix)
 		SandCRequestsMutex.Lock()
 		for i := range SandCRequests {
-			if SandCRequests[i].UserID == userID {
+			if SandCRequests[i].ID == reqID {
 				approved := true
 				SandCRequests[i].Approved = &approved
 				SandCRequests[i].ReviewedBy = event.User().Tag()
@@ -213,13 +218,27 @@ var SandCApprovalButtonListener = bot.NewListenerFunc(func(event *events.Compone
 
 		updateSandCForumPost(event.Client())
 
-		dmChannel, err := event.Client().Rest().CreateDMChannel(snowflake.MustParse(userID))
-		if err == nil {
-			_, _ = event.Client().Rest().CreateMessage(dmChannel.ID(),
-				discord.NewMessageCreateBuilder().
-					SetContent("✅ Your school or course request has been **approved**.").
-					Build(),
-			)
+		// Find the request by ID and get the UserID
+		var userID string
+		SandCRequestsMutex.Lock()
+		for i := range SandCRequests {
+			if SandCRequests[i].ID == reqID {
+				userID = SandCRequests[i].UserID
+				// ... (update fields as before)
+				break
+			}
+		}
+		SandCRequestsMutex.Unlock()
+
+		if userID != "" {
+			dmChannel, err := event.Client().Rest().CreateDMChannel(snowflake.MustParse(userID))
+			if err == nil {
+				_, _ = event.Client().Rest().CreateMessage(dmChannel.ID(),
+					discord.NewMessageCreateBuilder().
+						SetContent("✅ Your school or course request has been **approved**.").
+						Build(),
+				)
+			}
 		}
 
 		_ = event.Client().Rest().DeleteMessage(SandCApprovalChannelID, event.Message.ID)
@@ -247,12 +266,12 @@ var SandCApprovalButtonListener = bot.NewListenerFunc(func(event *events.Compone
 
 var SandCDenyModalListener = bot.NewListenerFunc(func(event *events.ModalSubmitInteractionCreate) {
 	if strings.HasPrefix(event.Data.CustomID, SandCDenyModalPrefix) {
-		userID := strings.TrimPrefix(event.Data.CustomID, SandCDenyModalPrefix)
+		reqID := strings.TrimPrefix(event.Data.CustomID, SandCDenyModalPrefix)
 		reason, _ := event.Data.TextInputComponent("deny-reason")
 
 		SandCRequestsMutex.Lock()
 		for i := range SandCRequests {
-			if SandCRequests[i].UserID == userID {
+			if SandCRequests[i].ID == reqID {
 				approved := false
 				SandCRequests[i].Approved = &approved
 				SandCRequests[i].ReviewedBy = event.User().Tag()
@@ -264,13 +283,27 @@ var SandCDenyModalListener = bot.NewListenerFunc(func(event *events.ModalSubmitI
 
 		updateSandCForumPost(event.Client())
 
-		dmChannel, err := event.Client().Rest().CreateDMChannel(snowflake.MustParse(userID))
-		if err == nil {
-			_, _ = event.Client().Rest().CreateMessage(dmChannel.ID(),
-				discord.NewMessageCreateBuilder().
-					SetContentf("❌ Your school or course request has been **denied**.\n**Reason:** %s", reason.Value).
-					Build(),
-			)
+		// Find the request by ID and get the UserID
+		var userID string
+		SandCRequestsMutex.Lock()
+		for i := range SandCRequests {
+			if SandCRequests[i].ID == reqID {
+				userID = SandCRequests[i].UserID
+				// ... (update fields as before)
+				break
+			}
+		}
+		SandCRequestsMutex.Unlock()
+
+		if userID != "" {
+			dmChannel, err := event.Client().Rest().CreateDMChannel(snowflake.MustParse(userID))
+			if err == nil {
+				_, _ = event.Client().Rest().CreateMessage(dmChannel.ID(),
+					discord.NewMessageCreateBuilder().
+						SetContentf("❌ Your school or course request has been **denied**.\n**Reason:** %s", reason.Value).
+						Build(),
+				)
+			}
 		}
 
 		_ = event.CreateMessage(discord.NewMessageCreateBuilder().

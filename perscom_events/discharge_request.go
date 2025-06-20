@@ -20,6 +20,10 @@ const dischargeRequestStatementSubmitModalCustomID = "discharge-request-statemen
 
 const disForumThreadID = snowflake.ID(1385484591200211157)
 const disApprovalChannelID = snowflake.ID(1382136230069928046)
+
+//const disForumThreadID = snowflake.ID(1385734751402459346)		// for 72nd server
+//const disApprovalChannelID = snowflake.ID(645668825668517888)	// for 72nd server
+
 const disApprovePrefix = "dis-approve"
 const disDenyPrefix = "dis-deny"
 const disDenyModalPrefix = "dis-deny-modal:"

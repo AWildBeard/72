@@ -20,6 +20,10 @@ const awardRecommendationModalSubmitCustomID = "award-recommendation-modal-submi
 
 const awdForumThreadID = snowflake.ID(1385471130894209144)
 const awdApprovalChannelID = snowflake.ID(1382136230069928046)
+
+//const awdForumThreadID = snowflake.ID(1385734844121612308)		// for 72nd server
+//const awdApprovalChannelID = snowflake.ID(645668825668517888)		// for 72nd server
+
 const awdApprovePrefix = "awd-approve"
 const awdDenyPrefix = "awd-deny"
 const awdDenyModalPrefix = "awd-deny-modal:"
@@ -39,6 +43,7 @@ type Award struct {
 	Approved   *bool
 	ReviewedBy string
 	DenyReason string
+	ID         string
 }
 
 var (
@@ -75,7 +80,7 @@ var awardRecommendationEventListener = bot.NewListenerFunc(func(event *events.Co
 				discord.NewStringSelectMenuOption("Air Service Medal", "Air Service Medal"),
 				discord.NewStringSelectMenuOption("Army Achievement Medal", "Army Achievement Medal"),
 				discord.NewStringSelectMenuOption("Army Commendation Medal", "Army Commendation Medal"),
-				discord.NewStringSelectMenuOption("Army NCODEV Ribbon", "Army NCODEV Ribbon"),
+				discord.NewStringSelectMenuOption("Army NCODEV Riawdon", "Army NCODEV Riawdon"),
 				discord.NewStringSelectMenuOption("Bronze Star Medal", "Bronze Star Medal"),
 			)).
 			Build(),
@@ -152,6 +157,7 @@ var awdModalSubmissionEventListener = bot.NewListenerFunc(func(event *events.Mod
 			Username:  event.User().Tag(),
 			Nickname:  nickname,
 			Submitted: time.Now().UTC(),
+			ID:        snowflake.New(time.Now()).String(),
 		}
 
 		awdRequestsMutex.Lock()
@@ -164,8 +170,8 @@ var awdModalSubmissionEventListener = bot.NewListenerFunc(func(event *events.Mod
 				SetContent(fmt.Sprintf("**%s** award recomendation submitted by **%s**\n• Recipient Name: **%s**\n• Operation #: **%s**\n• Citation: **%s**",
 					awd.awardName, awd.Nickname, awd.Recipient, awd.OpNumber, awd.Citation)).
 				AddActionRow(
-					discord.NewPrimaryButton("Approve", awdApprovePrefix+awd.UserID),
-					discord.NewDangerButton("Deny", awdDenyPrefix+awd.UserID),
+					discord.NewPrimaryButton("Approve", awdApprovePrefix+awd.ID),
+					discord.NewDangerButton("Deny", awdDenyPrefix+awd.ID),
 				).
 				Build(),
 		)
@@ -193,11 +199,10 @@ var awdModalSubmissionEventListener = bot.NewListenerFunc(func(event *events.Mod
 var awdApprovalButtonListener = bot.NewListenerFunc(func(event *events.ComponentInteractionCreate) {
 	customID := event.Data.CustomID()
 	if strings.HasPrefix(customID, awdApprovePrefix) {
-		userID := strings.TrimPrefix(customID, awdApprovePrefix)
-
+		reqID := strings.TrimPrefix(customID, awdApprovePrefix)
 		awdRequestsMutex.Lock()
 		for i := range awdRequests {
-			if awdRequests[i].UserID == userID {
+			if awdRequests[i].ID == reqID {
 				approved := true
 				awdRequests[i].Approved = &approved
 				awdRequests[i].ReviewedBy = event.User().Tag()
@@ -208,13 +213,27 @@ var awdApprovalButtonListener = bot.NewListenerFunc(func(event *events.Component
 
 		updateawdForumPost(event.Client())
 
-		dmChannel, err := event.Client().Rest().CreateDMChannel(snowflake.MustParse(userID))
-		if err == nil {
-			_, _ = event.Client().Rest().CreateMessage(dmChannel.ID(),
-				discord.NewMessageCreateBuilder().
-					SetContent("✅ Your award request has been **approved**.").
-					Build(),
-			)
+		// Find the request by ID and get the UserID
+		var userID string
+		awdRequestsMutex.Lock()
+		for i := range awdRequests {
+			if awdRequests[i].ID == reqID {
+				userID = awdRequests[i].UserID
+				// ... (update fields as before)
+				break
+			}
+		}
+		awdRequestsMutex.Unlock()
+
+		if userID != "" {
+			dmChannel, err := event.Client().Rest().CreateDMChannel(snowflake.MustParse(userID))
+			if err == nil {
+				_, _ = event.Client().Rest().CreateMessage(dmChannel.ID(),
+					discord.NewMessageCreateBuilder().
+						SetContent("✅ Your award request has been **approved**.").
+						Build(),
+				)
+			}
 		}
 
 		_ = event.Client().Rest().DeleteMessage(awdApprovalChannelID, event.Message.ID)
@@ -242,12 +261,12 @@ var awdApprovalButtonListener = bot.NewListenerFunc(func(event *events.Component
 
 var awdDenyModalListener = bot.NewListenerFunc(func(event *events.ModalSubmitInteractionCreate) {
 	if strings.HasPrefix(event.Data.CustomID, awdDenyModalPrefix) {
-		userID := strings.TrimPrefix(event.Data.CustomID, awdDenyModalPrefix)
+		reqID := strings.TrimPrefix(event.Data.CustomID, awdDenyModalPrefix)
 		reason, _ := event.Data.TextInputComponent("deny-reason")
 
 		awdRequestsMutex.Lock()
 		for i := range awdRequests {
-			if awdRequests[i].UserID == userID {
+			if awdRequests[i].ID == reqID {
 				approved := false
 				awdRequests[i].Approved = &approved
 				awdRequests[i].ReviewedBy = event.User().Tag()
@@ -259,13 +278,27 @@ var awdDenyModalListener = bot.NewListenerFunc(func(event *events.ModalSubmitInt
 
 		updateawdForumPost(event.Client())
 
-		dmChannel, err := event.Client().Rest().CreateDMChannel(snowflake.MustParse(userID))
-		if err == nil {
-			_, _ = event.Client().Rest().CreateMessage(dmChannel.ID(),
-				discord.NewMessageCreateBuilder().
-					SetContentf("❌ Your award request has been **denied**.\n**Reason:** %s", reason.Value).
-					Build(),
-			)
+		// Find the request by ID and get the UserID
+		var userID string
+		awdRequestsMutex.Lock()
+		for i := range awdRequests {
+			if awdRequests[i].ID == reqID {
+				userID = awdRequests[i].UserID
+				// ... (update fields as before)
+				break
+			}
+		}
+		awdRequestsMutex.Unlock()
+
+		if userID != "" {
+			dmChannel, err := event.Client().Rest().CreateDMChannel(snowflake.MustParse(userID))
+			if err == nil {
+				_, _ = event.Client().Rest().CreateMessage(dmChannel.ID(),
+					discord.NewMessageCreateBuilder().
+						SetContentf("❌ Your award request has been **denied**.\n**Reason:** %s", reason.Value).
+						Build(),
+				)
+			}
 		}
 
 		_ = event.CreateMessage(discord.NewMessageCreateBuilder().

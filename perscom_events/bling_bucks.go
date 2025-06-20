@@ -21,6 +21,10 @@ const blingBucksModalSubmit = "bling-bucks-modal-submit"
 
 const BBForumThreadID = snowflake.ID(1383955310200488107)
 const BBApprovalChannelID = snowflake.ID(1382136230069928046)
+
+//const BBForumThreadID = snowflake.ID(1385734566098112582)		// for 72nd server
+//const BBApprovalChannelID = snowflake.ID(645668825668517888)	// for 72nd server
+
 const BBApprovePrefix = "BB-approve"
 const BBDenyPrefix = "BB-deny"
 const BBDenyModalPrefix = "BB-deny-modal:"
@@ -41,6 +45,7 @@ type BlingBucks struct {
 	ReviewedBy  string
 	DenyReason  string
 	BBOption    string
+	ID          string
 }
 
 var (
@@ -186,6 +191,7 @@ var BBModalSubmissionEventListener = bot.NewListenerFunc(func(event *events.Moda
 			Submitted:   time.Now().UTC(),
 			Tickets:     numTicket.Value,
 			BBOption:    selectedBBOption,
+			ID:          snowflake.New(time.Now()).String(),
 		}
 
 		BBRequestsMutex.Lock()
@@ -207,8 +213,8 @@ var BBModalSubmissionEventListener = bot.NewListenerFunc(func(event *events.Moda
 					SetContent(fmt.Sprintf("BB **%s** request submitted by **%s**\n• Number of Tickets: **%s**",
 						selectedBBOption, BB.Nickname, BB.Tickets)).
 					AddActionRow(
-						discord.NewPrimaryButton("Approve", BBApprovePrefix+BB.UserID),
-						discord.NewDangerButton("Deny", BBDenyPrefix+BB.UserID),
+						discord.NewPrimaryButton("Approve", BBApprovePrefix+BB.ID),
+						discord.NewDangerButton("Deny", BBDenyPrefix+BB.ID),
 					).
 					Build(),
 			)
@@ -222,8 +228,8 @@ var BBModalSubmissionEventListener = bot.NewListenerFunc(func(event *events.Moda
 					SetContent(fmt.Sprintf("BB **%s** request submitted by **%s**\n• Description: **%s**",
 						selectedBBOption, BB.Nickname, BB.Description)).
 					AddActionRow(
-						discord.NewPrimaryButton("Approve", BBApprovePrefix+BB.UserID),
-						discord.NewDangerButton("Deny", BBDenyPrefix+BB.UserID),
+						discord.NewPrimaryButton("Approve", BBApprovePrefix+BB.ID),
+						discord.NewDangerButton("Deny", BBDenyPrefix+BB.ID),
 					).
 					Build(),
 			)
@@ -252,11 +258,10 @@ var BBModalSubmissionEventListener = bot.NewListenerFunc(func(event *events.Moda
 var BBApprovalButtonListener = bot.NewListenerFunc(func(event *events.ComponentInteractionCreate) {
 	customID := event.Data.CustomID()
 	if strings.HasPrefix(customID, BBApprovePrefix) {
-		userID := strings.TrimPrefix(customID, BBApprovePrefix)
-
+		reqID := strings.TrimPrefix(customID, BBApprovePrefix)
 		BBRequestsMutex.Lock()
 		for i := range BBRequests {
-			if BBRequests[i].UserID == userID {
+			if BBRequests[i].ID == reqID {
 				approved := true
 				BBRequests[i].Approved = &approved
 				BBRequests[i].ReviewedBy = event.User().Tag()
@@ -267,13 +272,27 @@ var BBApprovalButtonListener = bot.NewListenerFunc(func(event *events.ComponentI
 
 		updateBBForumPost(event.Client())
 
-		dmChannel, err := event.Client().Rest().CreateDMChannel(snowflake.MustParse(userID))
-		if err == nil {
-			_, _ = event.Client().Rest().CreateMessage(dmChannel.ID(),
-				discord.NewMessageCreateBuilder().
-					SetContent("✅ Your BB request has been **approved**.").
-					Build(),
-			)
+		// Find the request by ID and get the UserID
+		var userID string
+		BBRequestsMutex.Lock()
+		for i := range BBRequests {
+			if BBRequests[i].ID == reqID {
+				userID = BBRequests[i].UserID
+				// ... (update fields as before)
+				break
+			}
+		}
+		BBRequestsMutex.Unlock()
+
+		if userID != "" {
+			dmChannel, err := event.Client().Rest().CreateDMChannel(snowflake.MustParse(userID))
+			if err == nil {
+				_, _ = event.Client().Rest().CreateMessage(dmChannel.ID(),
+					discord.NewMessageCreateBuilder().
+						SetContent("✅ Your BB request has been **approved**.").
+						Build(),
+				)
+			}
 		}
 
 		_ = event.Client().Rest().DeleteMessage(BBApprovalChannelID, event.Message.ID)
@@ -301,12 +320,12 @@ var BBApprovalButtonListener = bot.NewListenerFunc(func(event *events.ComponentI
 
 var BBDenyModalListener = bot.NewListenerFunc(func(event *events.ModalSubmitInteractionCreate) {
 	if strings.HasPrefix(event.Data.CustomID, BBDenyModalPrefix) {
-		userID := strings.TrimPrefix(event.Data.CustomID, BBDenyModalPrefix)
+		reqID := strings.TrimPrefix(event.Data.CustomID, BBDenyModalPrefix)
 		reason, _ := event.Data.TextInputComponent("deny-reason")
 
 		BBRequestsMutex.Lock()
 		for i := range BBRequests {
-			if BBRequests[i].UserID == userID {
+			if BBRequests[i].ID == reqID {
 				approved := false
 				BBRequests[i].Approved = &approved
 				BBRequests[i].ReviewedBy = event.User().Tag()
@@ -318,13 +337,27 @@ var BBDenyModalListener = bot.NewListenerFunc(func(event *events.ModalSubmitInte
 
 		updateBBForumPost(event.Client())
 
-		dmChannel, err := event.Client().Rest().CreateDMChannel(snowflake.MustParse(userID))
-		if err == nil {
-			_, _ = event.Client().Rest().CreateMessage(dmChannel.ID(),
-				discord.NewMessageCreateBuilder().
-					SetContentf("❌ Your BB request has been **denied**.\n**Reason:** %s", reason.Value).
-					Build(),
-			)
+		// Find the request by ID and get the UserID
+		var userID string
+		BBRequestsMutex.Lock()
+		for i := range BBRequests {
+			if BBRequests[i].ID == reqID {
+				userID = BBRequests[i].UserID
+				// ... (update fields as before)
+				break
+			}
+		}
+		BBRequestsMutex.Unlock()
+
+		if userID != "" {
+			dmChannel, err := event.Client().Rest().CreateDMChannel(snowflake.MustParse(userID))
+			if err == nil {
+				_, _ = event.Client().Rest().CreateMessage(dmChannel.ID(),
+					discord.NewMessageCreateBuilder().
+						SetContentf("❌ Your BB request has been **denied**.\n**Reason:** %s", reason.Value).
+						Build(),
+				)
+			}
 		}
 
 		_ = event.CreateMessage(discord.NewMessageCreateBuilder().
@@ -466,6 +499,10 @@ func updateBBForumPost(client bot.Client) {
 	BBRequestsMutex.Lock()
 	defer BBRequestsMutex.Unlock()
 
+	BBForumAddedMutex.Lock()
+	BBForumAdded = make(map[string]bool)
+	BBForumAddedMutex.Unlock()
+
 	var newEntries strings.Builder
 
 	for _, req := range BBRequests {
@@ -474,7 +511,7 @@ func updateBBForumPost(client bot.Client) {
 		}
 
 		// More stable and readable key
-		key := fmt.Sprintf("%s|%s|%v", req.UserID, req.PlayerID, req.Approved)
+		key := fmt.Sprintf("%s|%s|%s|%s|%v|%s", req.UserID, req.BBOption, req.Tickets, req.PlayerID, req.Approved, req.Submitted.Format(time.RFC3339Nano))
 
 		BBForumAddedMutex.Lock()
 		if BBForumAdded[key] {
@@ -528,19 +565,12 @@ func updateBBForumPost(client bot.Client) {
 		}
 		BBForumMessageID = msg.ID
 	} else {
-		// Append to existing message
-		msg, err := client.Rest().GetMessage(BBForumThreadID, BBForumMessageID)
-		if err != nil {
-			slog.Error("failed to fetch BB forum post", slog.Any("err", err))
-			return
-		}
-
-		newContent := msg.Content + newEntries.String()
+		// Overwrite the existing message with the full log
+		newContent := "**BB Log:**\n" + newEntries.String()
 		if len(newContent) > 2000 {
 			newContent = newContent[:2000] // truncate to Discord limit
 		}
-
-		_, err = client.Rest().UpdateMessage(BBForumThreadID, BBForumMessageID,
+		_, err := client.Rest().UpdateMessage(BBForumThreadID, BBForumMessageID,
 			discord.NewMessageUpdateBuilder().SetContent(newContent).Build())
 		if err != nil {
 			slog.Error("failed to update BB forum post", slog.Any("err", err))

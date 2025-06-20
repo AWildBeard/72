@@ -22,6 +22,9 @@ const leaveOfAbsenceModalSubmissionCustomID = "leave-of-absence-modal-submit"
 const loaForumThreadID = snowflake.ID(1382882958314307604)
 const loaApprovalChannelID = snowflake.ID(1382136230069928046)
 
+//const loaForumThreadID = snowflake.ID(1385734355854557345)		// for 72nd server
+//const loaApprovalChannelID = snowflake.ID(645668825668517888)		// for 72nd server
+
 const loaApprovePrefix = "loa-approve"
 const loaDenyPrefix = "loa-deny"
 const loaDenyModalPrefix = "loa-deny-modal:"
@@ -138,14 +141,14 @@ var leaveOfAbsenceModalSubmissionEventListener = bot.NewListenerFunc(func(event 
 			slog.Error("failed to post LOA approval message", slog.Any("err", err))
 		}
 
-		dmChannel, err := event.Client().Rest().CreateDMChannel(event.User().ID)
-		if err == nil {
-			_, _ = event.Client().Rest().CreateMessage(dmChannel.ID(),
-				discord.NewMessageCreateBuilder().
-					SetContent("✅ Your leave of absence request has been **submitted**.").
-					Build(),
-			)
-		}
+		// dmChannel, err := event.Client().Rest().CreateDMChannel(event.User().ID)
+		// if err == nil {
+		// 	_, _ = event.Client().Rest().CreateMessage(dmChannel.ID(),
+		// 		discord.NewMessageCreateBuilder().
+		// 			SetContent("✅ Your leave of absence request has been **submitted**.").
+		// 			Build(),
+		// 	)
+		// }
 
 		_ = event.UpdateMessage(discord.NewMessageUpdateBuilder().
 			ClearEmbeds().
