@@ -14,6 +14,7 @@ import (
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/disgo/gateway"
 	"github.com/disgoorg/snowflake/v2"
+	"github.com/joho/godotenv"
 )
 
 var (
@@ -23,7 +24,29 @@ var (
 	client       bot.Client
 )
 
+func init() {
+	err := godotenv.Load()
+	if err != nil {
+		slog.Error("No .env file found, falling back to system environment variables")
+	}
+}
+
 func main() {
+
+	// 1. Open the log file
+	file, err1 := os.OpenFile("app.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err1 != nil {
+		slog.Error("failed to open log file", slog.Any("error", err1))
+		return
+	}
+	defer file.Close() // Ensure the file is closed
+	// 2. Choose a handler (e.g., JSON handler)
+	handler := slog.NewTextHandler(file, nil) // You can add options here if needed
+	// 3. Create a new logger
+	logger := slog.New(handler)
+	// Set the default logger (optional, but good practice for consistent logging)
+	slog.SetDefault(logger)
+
 	slog.Info("starting bot...")
 	slog.Info("build version", slog.String("version", buildType+"-"+buildVersion))
 	slog.Info("disgo version", slog.String("version", disgo.Version))
@@ -206,9 +229,14 @@ func main() {
 	}
 
 	slog.Info("bot is now running. Press CTRL-C to exit.")
+
 	s := make(chan os.Signal, 1)
 	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-s
+
+	slog.Info("shutdown signal received, closing client...")
+	client.Close(context.TODO())
+	slog.Info("bot shut down successfully.")
 }
 
 func sendButtonsBy5(client bot.Client, buttons []discord.ButtonComponent, channelID snowflake.ID) {
