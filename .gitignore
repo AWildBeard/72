@@ -11,3 +11,4 @@
 !*.yaml
 
 !.idea/.gitignore
+.env
