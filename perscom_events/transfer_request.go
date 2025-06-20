@@ -302,7 +302,7 @@ func updatetransForumPost(client bot.Client) {
 		// Create new summary post
 		msg, err := client.Rest().CreateMessage(transForumThreadID,
 			discord.NewMessageCreateBuilder().
-				SetContent("**Schools and Courses Log:**"+newEntries.String()).
+				SetContent("**Transfer Log:**"+newEntries.String()).
 				Build())
 		if err != nil {
 			slog.Error("failed to create trans forum post", slog.Any("err", err))
