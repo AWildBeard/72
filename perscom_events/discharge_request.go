@@ -18,11 +18,11 @@ const dischargeRequestCustomID = "discharge-request"
 const dischargeRequestStatementModalCustomID = "discharge-request-statement-modal"
 const dischargeRequestStatementSubmitModalCustomID = "discharge-request-statement-modal-submit"
 
-const disForumThreadID = snowflake.ID(1385484591200211157)
-const disApprovalChannelID = snowflake.ID(1382136230069928046)
+//const disForumThreadID = snowflake.ID(1385484591200211157)
+//const disApprovalChannelID = snowflake.ID(1382136230069928046)
 
-//const disForumThreadID = snowflake.ID(1385734751402459346)		// for 72nd server
-//const disApprovalChannelID = snowflake.ID(645668825668517888)	// for 72nd server
+const disForumThreadID = snowflake.ID(1385734751402459346)    // for 72nd server
+const disApprovalChannelID = snowflake.ID(645668825668517888) // for 72nd server
 
 const disApprovePrefix = "dis-approve"
 const disDenyPrefix = "dis-deny"
