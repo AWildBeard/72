@@ -18,11 +18,11 @@ const transferRequestCustomID = "transfer-request"
 const transferRequestModalCustomID = "transfer-request-modal"
 const transferRequestModalSubmitCustomID = "transfer-request-modal-submit"
 
-const transForumThreadID = snowflake.ID(1384355420356739143)
-const transApprovalChannelID = snowflake.ID(1382136230069928046)
+//const transForumThreadID = snowflake.ID(1384355420356739143)
+//const transApprovalChannelID = snowflake.ID(1382136230069928046)
 
-//const transForumThreadID = snowflake.ID(1385734619579678740)		// for 72nd server
-//const transApprovalChannelID = snowflake.ID(645668825668517888)	// for 72nd server
+const transForumThreadID = snowflake.ID(1385734619579678740)    // for 72nd server
+const transApprovalChannelID = snowflake.ID(645668825668517888) // for 72nd server
 
 const transApprovePrefix = "trans-approve"
 const transDenyPrefix = "trans-deny"

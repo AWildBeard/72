@@ -21,11 +21,11 @@ const schoolAndCourseRequestCustomID = "school-and-course-request"
 const selectedCourseCustomID = "selected-course"
 const selectedCourseAvailabilityModalSubmit = "selected-course-availability-modal-submit"
 
-const SandCForumThreadID = snowflake.ID(1383869877688729713)
-const SandCApprovalChannelID = snowflake.ID(1382136230069928046)
+//const SandCForumThreadID = snowflake.ID(1383869877688729713)
+//const SandCApprovalChannelID = snowflake.ID(1382136230069928046)
 
-//const SandCForumThreadID = snowflake.ID(1385734455582523513)		// for 72nd server
-//const SandCApprovalChannelID = snowflake.ID(645668825668517888)	// for 72nd server
+const SandCForumThreadID = snowflake.ID(1385734455582523513)    // for 72nd server
+const SandCApprovalChannelID = snowflake.ID(645668825668517888) // for 72nd server
 
 const SandCApprovePrefix = "sandc-approve"
 const SandCDenyPrefix = "sandc-deny"

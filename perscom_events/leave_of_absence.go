@@ -19,11 +19,11 @@ const leaveOfAbsenceCustomID = "leave-of-absence"
 const leaveOfAbsenceModalCustomID = "leave-of-absence-modal"
 const leaveOfAbsenceModalSubmissionCustomID = "leave-of-absence-modal-submit"
 
-const loaForumThreadID = snowflake.ID(1382882958314307604)
-const loaApprovalChannelID = snowflake.ID(1382136230069928046)
+//const loaForumThreadID = snowflake.ID(1382882958314307604)
+//const loaApprovalChannelID = snowflake.ID(1382136230069928046)
 
-//const loaForumThreadID = snowflake.ID(1385734355854557345)		// for 72nd server
-//const loaApprovalChannelID = snowflake.ID(645668825668517888)		// for 72nd server
+const loaForumThreadID = snowflake.ID(1385734355854557345)    // for 72nd server
+const loaApprovalChannelID = snowflake.ID(645668825668517888) // for 72nd server
 
 const loaApprovePrefix = "loa-approve"
 const loaDenyPrefix = "loa-deny"
