@@ -19,11 +19,11 @@ const blingBucksCustomID = "bling-bucks"
 const selectedBBOptionCustomID = "selected-bb-option"
 const blingBucksModalSubmit = "bling-bucks-modal-submit"
 
-const BBForumThreadID = snowflake.ID(1383955310200488107)
-const BBApprovalChannelID = snowflake.ID(1382136230069928046)
+//const BBForumThreadID = snowflake.ID(1383955310200488107)
+//const BBApprovalChannelID = snowflake.ID(1382136230069928046)
 
-//const BBForumThreadID = snowflake.ID(1385734566098112582)		// for 72nd server
-//const BBApprovalChannelID = snowflake.ID(645668825668517888)	// for 72nd server
+const BBForumThreadID = snowflake.ID(1385734566098112582)    // for 72nd server
+const BBApprovalChannelID = snowflake.ID(645668825668517888) // for 72nd server
 
 const BBApprovePrefix = "BB-approve"
 const BBDenyPrefix = "BB-deny"
