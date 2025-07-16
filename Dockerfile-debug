@@ -1,8 +1,8 @@
 FROM golang:1.24 AS builder
 
-RUN mkdir /{dist,app}
-RUN go install github.com/go-delve/delve/cmd/dlv@latest
-RUN cp $(which dlv) /dist/dlv
+RUN mkdir /dist /app
+RUN go install "github.com/go-delve/delve/cmd/dlv@latest"
+RUN cp /go/bin/dlv /dist/dlv
 
 WORKDIR /app
 COPY ["go.*", "./"]
