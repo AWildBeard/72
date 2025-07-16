@@ -3,6 +3,9 @@ package main
 import (
 	"72/perscom_events"
 	"context"
+	"fmt"
+	"github.com/disgoorg/snowflake/v2"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -13,53 +16,61 @@ import (
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/disgo/gateway"
-	"github.com/disgoorg/snowflake/v2"
-	"github.com/joho/godotenv"
+	flag "github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
 var (
-	token        string
+	// Flags
+	token string
+
 	buildType    string
 	buildVersion string
-	client       bot.Client
+
+	client bot.Client
 )
 
-func init() {
-	err := godotenv.Load()
-	if err != nil {
-		slog.Error("No .env file found, falling back to system environment variables")
-	}
-}
-
 func main() {
+	flag.StringP("token", "t", "", "Discord bot token")
+	flag.StringP("log-file", "l", "", "Log file name to write the process log to")
+	flag.Parse()
 
-	// 1. Open the log file
-	file, err1 := os.OpenFile("app.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err1 != nil {
-		slog.Error("failed to open log file", slog.Any("error", err1))
-		return
+	err := viper.BindPFlags(flag.CommandLine)
+	if err != nil {
+		panic(fmt.Sprintf("error binding flags: %v", err))
 	}
-	defer file.Close() // Ensure the file is closed
-	// 2. Choose a handler (e.g., JSON handler)
-	handler := slog.NewTextHandler(file, nil) // You can add options here if needed
-	// 3. Create a new logger
-	logger := slog.New(handler)
-	// Set the default logger (optional, but good practice for consistent logging)
-	slog.SetDefault(logger)
+
+	viper.SetEnvPrefix("72")
+	viper.AutomaticEnv()
+
+	token = viper.GetString("token")
+
+	{ // Set logging to either stdout or stdout+log file
+		logFile := viper.GetString("log-file")
+		logOutputs := []io.Writer{os.Stdout}
+
+		if logFile != "" {
+			log, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+			if err != nil {
+				panic(fmt.Sprintf("error creating/opening log file: %v", err))
+			}
+
+			defer log.Close()
+
+			logOutputs = append(logOutputs, log)
+		}
+
+		handler := slog.NewTextHandler(io.MultiWriter(logOutputs...), nil)
+
+		logger := slog.New(handler)
+
+		slog.SetDefault(logger)
+	}
 
 	slog.Info("starting bot...")
 	slog.Info("build version", slog.String("version", buildType+"-"+buildVersion))
 	slog.Info("disgo version", slog.String("version", disgo.Version))
 
-	token = os.Getenv("DISCORD_BOT_TOKEN")
-	if token == "" {
-		slog.Error("DISCORD_BOT_TOKEN is not set! Please check your environment or .env file.")
-		return
-	} else {
-		slog.Info("DISCORD_BOT_TOKEN was loaded", slog.Int("length", len(token)))
-	}
-
-	var err error
 	client, err = disgo.New(token,
 		bot.WithGatewayConfigOpts(
 			gateway.WithIntents(
