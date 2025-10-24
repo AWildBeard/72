@@ -115,7 +115,7 @@ var blingBucksSelectedOptionEventListener = bot.NewListenerFunc(func(event *even
 			err = event.Modal(discord.NewModalCreateBuilder().
 				SetTitle("Bling Bucks Request").
 				SetCustomID(blingBucksModalSubmit + ":" + selectedOption).
-				AddActionRow(discord.NewParagraphTextInput("description", "Request For Customization (must have class name and image link)")).
+				AddActionRow(discord.NewParagraphTextInput("description", "Request SubmittedBy Customization (must have class name and image link)")).
 				Build(),
 			)
 		}

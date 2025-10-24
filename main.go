@@ -4,20 +4,23 @@ import (
 	"72/perscom_events"
 	"context"
 	"fmt"
-	"github.com/disgoorg/snowflake/v2"
 	"io"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/disgoorg/snowflake/v2"
+
 	"github.com/disgoorg/disgo"
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/disgo/gateway"
+	"github.com/glebarez/sqlite"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"gorm.io/gorm"
 )
 
 var (
@@ -55,7 +58,7 @@ func main() {
 				panic(fmt.Sprintf("error creating/opening log file: %v", err))
 			}
 
-			defer log.Close()
+			defer log.Close() // ignore error. we don't care at this point
 
 			logOutputs = append(logOutputs, log)
 		}
@@ -86,7 +89,7 @@ func main() {
 		return
 	}
 
-	perscom_events.InitTPRScheduler(client)
+	//perscom_events.InitTPRScheduler(client)
 
 	defer client.Close(context.TODO())
 
@@ -94,7 +97,8 @@ func main() {
 	warningButtons := make([]discord.ButtonComponent, 0)
 	successButtons := make([]discord.ButtonComponent, 0)
 
-	for _, buttonEventHandler := range perscom_events.GetButtonEventHandlers() {
+	slog.Info("registering button event handlers")
+	for _, buttonEventHandler := range perscom_events.GetPublicEventHandlers() {
 		switch buttonEventHandler.Button.Style {
 		case discord.ButtonStylePremium:
 		case discord.ButtonStyleSuccess:
@@ -112,79 +116,101 @@ func main() {
 	}
 
 	client.AddEventListeners(bot.NewListenerFunc(func(event *events.GuildReady) {
-		slog.Info("Bot is ready, registering slash commands...")
+		//slog.Info("Bot is ready, registering slash commands...")
+		//
+		//// Register slash commands dynamically on bot ready
+		//_, err := client.Rest().SetGuildCommands(
+		//	client.ID(),
+		//	event.GuildID,
+		//	[]discord.ApplicationCommandCreate{
+		//		discord.SlashCommandCreate{
+		//			Name:        "tpr-list",
+		//			Description: "List all approved temporary pass requests",
+		//		},
+		//		discord.SlashCommandCreate{
+		//			Name:        "loa-list",
+		//			Description: "List all approved leave of absence requests",
+		//		},
+		//		discord.SlashCommandCreate{
+		//			Name:        "loa-clear",
+		//			Description: "Clear leave of absence requests by nickname",
+		//			Options: []discord.ApplicationCommandOption{
+		//				discord.ApplicationCommandOptionString{
+		//					Name:        "nickname",
+		//					Description: "The nickname to clear LOAs for",
+		//					Required:    true,
+		//				},
+		//			},
+		//		},
+		//		discord.SlashCommandCreate{
+		//			Name:        "school-list",
+		//			Description: "List all approved school and course requests",
+		//		},
+		//		discord.SlashCommandCreate{
+		//			Name:        "school-clear",
+		//			Description: "Clear school or course requests by nickname",
+		//			Options: []discord.ApplicationCommandOption{
+		//				discord.ApplicationCommandOptionString{
+		//					Name:        "nickname",
+		//					Description: "The nickname to clear School or Course requests for",
+		//					Required:    true,
+		//				},
+		//			},
+		//		},
+		//		discord.SlashCommandCreate{
+		//			Name:        "bb-list",
+		//			Description: "List all approved BB requests",
+		//		},
+		//		discord.SlashCommandCreate{
+		//			Name:        "bb-clear",
+		//			Description: "Clear BB requests by nickname",
+		//			Options: []discord.ApplicationCommandOption{
+		//				discord.ApplicationCommandOptionString{
+		//					Name:        "nickname",
+		//					Description: "The nickname to clear BB requests for",
+		//					Required:    true,
+		//				},
+		//			},
+		//		},
+		//	},
+		//)
+		//if err != nil {
+		//	slog.Error("failed to register slash commands", slog.Any("err", err))
+		//	return
+		//}
+		//
+		//slog.Info("Slash commands registered successfully")
 
-		// Register slash commands dynamically on bot ready
-		_, err := client.Rest().SetGuildCommands(
-			client.ID(),
-			event.GuildID,
-			[]discord.ApplicationCommandCreate{
-				discord.SlashCommandCreate{
-					Name:        "tpr-list",
-					Description: "List all approved temporary pass requests",
-				},
-				discord.SlashCommandCreate{
-					Name:        "loa-list",
-					Description: "List all approved leave of absence requests",
-				},
-				discord.SlashCommandCreate{
-					Name:        "loa-clear",
-					Description: "Clear leave of absence requests by nickname",
-					Options: []discord.ApplicationCommandOption{
-						discord.ApplicationCommandOptionString{
-							Name:        "nickname",
-							Description: "The nickname to clear LOAs for",
-							Required:    true,
-						},
-					},
-				},
-				discord.SlashCommandCreate{
-					Name:        "school-list",
-					Description: "List all approved school and course requests",
-				},
-				discord.SlashCommandCreate{
-					Name:        "school-clear",
-					Description: "Clear school or course requests by nickname",
-					Options: []discord.ApplicationCommandOption{
-						discord.ApplicationCommandOptionString{
-							Name:        "nickname",
-							Description: "The nickname to clear School or Course requests for",
-							Required:    true,
-						},
-					},
-				},
-				discord.SlashCommandCreate{
-					Name:        "bb-list",
-					Description: "List all approved BB requests",
-				},
-				discord.SlashCommandCreate{
-					Name:        "bb-clear",
-					Description: "Clear BB requests by nickname",
-					Options: []discord.ApplicationCommandOption{
-						discord.ApplicationCommandOptionString{
-							Name:        "nickname",
-							Description: "The nickname to clear BB requests for",
-							Required:    true,
-						},
-					},
-				},
-			},
-		)
-		if err != nil {
-			slog.Error("failed to register slash commands", slog.Any("err", err))
-			return
-		}
-
-		slog.Info("Slash commands registered successfully")
+		slog.Info("guild ready", slog.String("guild-id", event.GuildID.String()))
 
 		channels, err := client.Rest().GetGuildChannels(event.GuildID)
 		if err != nil {
-			slog.Error("error while getting channels", slog.Any("err", err))
+			slog.Error("error while getting channels",
+				slog.Any("err", err),
+				slog.String("guild-id", event.GuildID.String()),
+			)
 			return
 		}
 
+		// Find the required channels first for initialization
+		var submissionsChannelID snowflake.ID
+
 		for _, channel := range channels {
-			if channel.Name() == "perscom-requests" {
+			if channel.Name() == "s1-submissions" {
+				submissionsChannelID = channel.ID()
+			}
+		}
+
+		db, err := gorm.Open(sqlite.Open(fmt.Sprintf("/tmp/%s.db", event.GuildID)), &gorm.Config{})
+
+		if err != nil {
+			panic(err)
+		}
+
+		perscom_events.InitializeForNewGuild(db, submissionsChannelID, event.GuildID)
+
+		for _, channel := range channels {
+			if channel.Name() == "perscom" {
 				messages, err := client.Rest().GetMessages(channel.ID(), 0, 0, 0, 100)
 				if err != nil {
 					slog.Error("error while fetching messages", slog.Any("err", err))
@@ -239,7 +265,7 @@ func main() {
 		return
 	}
 
-	slog.Info("bot is now running. Press CTRL-C to exit.")
+	slog.Info("bot is now running")
 
 	s := make(chan os.Signal, 1)
 	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
@@ -250,6 +276,7 @@ func main() {
 	slog.Info("bot shut down successfully.")
 }
 
+// sendButtonsBy5 sends a list of buttons to a channel in groups of 5
 func sendButtonsBy5(client bot.Client, buttons []discord.ButtonComponent, channelID snowflake.ID) {
 	for i := 0; i < len(buttons); i += 5 {
 		end := i + 5
